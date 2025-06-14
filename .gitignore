@@ -1,0 +1,19 @@
+# Ignore Laravel environment file
+.env
+
+# Ignore vendor and node_modules (jika belum ditulis)
+vendor/
+node_modules/
+
+# Ignore Vite build
+public/build/
+
+# Ignore user-generated database, logs, and cache
+storage/*.key
+storage/app/public/*
+storage/framework/*
+storage/logs/*
+
+# Ignore Repos directory and contents
+Repos/
+Docker/db/data/*

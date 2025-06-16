@@ -1,3 +1,6 @@
+volumes:
+  laravel_app:
+
 services:
   ####################################################################################################
   # PHP
@@ -7,7 +10,7 @@ services:
     ports:
       - "${VITE_PORT}:5173"
     volumes:
-      - ./Repos/${LARAVEL_FOLDER}:/var/www:cached
+      - laravel_app:/var/www
 
   ####################################################################################################
   # Nginx
@@ -17,7 +20,7 @@ services:
     ports:
       - "${APP_PORT}:80"
     volumes:
-      - ./Repos/${LARAVEL_FOLDER}:/var/www
+      - laravel_app:/var/www
       - ./Docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
       - ./Docker/nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:

@@ -42,16 +42,36 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
 RUN composer config --global process-timeout 3600 \
   && composer global require laravel/installer
 
-# Pindah ke direktori sementara sebelum menghapus isi /var/www
-WORKDIR /tmp
+WORKDIR /
 
-# Hapus isi /var/www dengan aman dan buat project
-RUN find /var/www -mindepth 1 -delete && composer create-project juniyasyos/siimut /var/www
+# Bersihkan dan clone project
+RUN mkdir -p /var/www \
+ && find /var/www -mindepth 1 -delete \
+ && git clone https://github.com/juniyasyos/siimut-optimize.git /var/www 
 
-# Balikkan WORKDIR ke /var/www
+# Set working directory
 WORKDIR /var/www
 
+# Jalankan composer install — ini akan otomatis memicu semua scripts yang kamu buat
+RUN composer install \
+&& npm install && npm run build \
+&& composer run post-root-package-install \
+&& composer run post-update-cmd \
+&& composer run post-create-project-cmd
+
+# Pastikan permission benar untuk Laravel
 RUN chown -R www-data:www-data /var/www \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+ && chmod -R ug+rw storage bootstrap/cache
+
+# Edit file .env setelah clone dan sebelum artisan migrate
+RUN sed -i 's/^APP_NAME=.*/APP_NAME="SIIMUT"/' .env \
+ && sed -i 's/^APP_ENV=.*/APP_ENV=stagging/' .env \
+ && sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env \
+ && sed -i 's/^DB_HOST=.*/DB_HOST=db/' .env \
+ && sed -i 's/^DB_DATABASE=.*/DB_DATABASE=siimut_prod/' .env \
+ && sed -i 's/^DB_USERNAME=.*/DB_USERNAME=siimut/' .env \
+ && sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=password-siimut/' .env 
+
+RUN git config --global --add safe.directory /var/www
 
 EXPOSE 5173

@@ -30,7 +30,8 @@ services:
   # DATABASE (MySQL)
   ####################################################################################################
   db:
-    image: mysql:${MYSQL_VERSION}
+    # image: mysql:${MYSQL_VERSION}
+    image: mariadb:10.11
     ports:
       - "${MYSQL_PORT}:3306"
     volumes:

@@ -11,14 +11,12 @@ services:
       - "${VITE_PORT}:5173"
     volumes:
       - laravel_app:/var/www
-    depands_on:
-      - db
 
   ####################################################################################################
   # Nginx
   ####################################################################################################
   nginx:
-    image: nginx
+    image: nginx:alpine
     ports:
       - "${APP_PORT}:80"
     volumes:
@@ -85,7 +83,7 @@ services:
   # Redis
   ####################################################################################################
   redis:
-    image: redis:latest
+    image: redis:alpine
     command: redis-server --appendonly yes
     volumes:
       - ./Docker/redis/data:/data

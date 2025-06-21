@@ -1,4 +1,4 @@
-FROM php:8.4-fpm AS base
+FROM php:8.4-fpm-alpine AS base
 
 # --- Konfigurasi awal ---
 COPY php.ini /usr/local/etc/php/

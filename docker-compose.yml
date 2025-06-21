@@ -6,7 +6,9 @@ services:
   # PHP
   ####################################################################################################
   php:
-    build: Docker/php
+    build:
+      context: ./Docker/php
+      dockerfile: Dockerfile.alpine
     ports:
       - "${VITE_PORT}:5173"
     volumes:

@@ -75,8 +75,10 @@ RUN composer install --no-dev --optimize-autoloader \
  && composer run post-create-project-cmd
 
 # Set permission Laravel
-RUN chown -R www-data:www-data /var/www \
- && chmod -R ug+rw storage bootstrap/cache
+# RUN chown -R www-data:www-data /var/www \
+#  && chmod -R ug+rw storage bootstrap/cache
+COPY --chown=www-data:www-data . /var/www
+RUN chmod -R ug+rw /var/www/storage /var/www/bootstrap/cache
 
 # Setup .env
 RUN sed -i 's/^APP_NAME=.*/APP_NAME="SIIMUT"/' .env \

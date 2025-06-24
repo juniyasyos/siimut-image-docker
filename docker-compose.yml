@@ -6,9 +6,7 @@ services:
   # PHP
   ####################################################################################################
   php:
-    build:
-      context: ./Docker/php
-      dockerfile: Dockerfile.alpine
+    image: juniyasyos/siimut-app:latest
     ports:
       - "${VITE_PORT}:5173"
     volumes:

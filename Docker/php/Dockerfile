@@ -65,12 +65,20 @@ RUN chown -R www-data:www-data /var/www \
 
 # Edit file .env setelah clone dan sebelum artisan migrate
 RUN sed -i 's/^APP_NAME=.*/APP_NAME="SIIMUT"/' .env \
- && sed -i 's/^APP_ENV=.*/APP_ENV=stagging/' .env \
+ && sed -i 's/^APP_ENV=.*/APP_ENV=staging/' .env \
  && sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env \
  && sed -i 's/^DB_HOST=.*/DB_HOST=db/' .env \
  && sed -i 's/^DB_DATABASE=.*/DB_DATABASE=siimut_prod/' .env \
  && sed -i 's/^DB_USERNAME=.*/DB_USERNAME=siimut/' .env \
- && sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=password-siimut/' .env 
+ && sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=password-siimut/' .env \
+ && sed -i 's/^REDIS_CLIENT=.*/REDIS_CLIENT=phpredis/' .env \
+ && sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' .env \
+ && sed -i 's/^REDIS_PASSWORD=.*/REDIS_PASSWORD=null/' .env \
+ && sed -i 's/^REDIS_PORT=.*/REDIS_PORT=6379/' .env \
+ && sed -i 's/^CACHE_STORE=.*/CACHE_STORE=redis/' .env \
+ && sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=redis/' .env \
+ && sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=redis/' .env
+
 
 RUN git config --global --add safe.directory /var/www
 

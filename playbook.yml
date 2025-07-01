@@ -1,0 +1,88 @@
+- name: Setup Docker dan Docker Compose dengan gaya bersahabat 😎
+  hosts: localhost
+  become: true
+  gather_facts: true
+
+  tasks:
+
+    - name: 🔄 Memperbarui daftar paket
+      apt:
+        update_cache: yes
+      register: update_result
+
+    - name: ✅ Info: Update selesai
+      debug:
+        msg: "Update apt berhasil."
+      when: update_result is succeeded
+
+    - name: 📦 Menginstall dependensi dasar
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - gnupg
+        - lsb-release
+      register: deps_result
+
+    - name: ✅ Info: Dependensi berhasil diinstall
+      debug:
+        msg: "Semua dependensi dasar berhasil diinstall."
+      when: deps_result is succeeded
+
+    - name: 🔑 Menambahkan GPG key Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: 📁 Menambahkan repository Docker
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: 🔄 Update apt kembali setelah menambahkan repo Docker
+      apt:
+        update_cache: yes
+
+    - name: 🐳 Menginstall Docker Engine
+      apt:
+        name: docker-ce
+        state: present
+      register: docker_result
+
+    - name: ✅ Verifikasi: Docker berhasil diinstall?
+      shell: docker --version
+      register: docker_version
+      failed_when: docker_version.rc != 0
+
+    - name: ✅ Info: Docker versi
+      debug:
+        msg: "Docker berhasil terinstall: {{ docker_version.stdout }}"
+
+    - name: 🔧 Menginstall Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: ✅ Verifikasi: Docker Compose berhasil diinstall?
+      shell: docker-compose --version
+      register: compose_version
+      failed_when: compose_version.rc != 0
+
+    - name: ✅ Info: Docker Compose versi
+      debug:
+        msg: "Docker Compose berhasil terinstall: {{ compose_version.stdout }}"
+
+    - name: 🔄 Mengaktifkan dan menjalankan service Docker
+      service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: 🎉 Selesai!
+      debug:
+        msg: "Installasi Docker dan Docker Compose selesai tanpa drama! 🎉"

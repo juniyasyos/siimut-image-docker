@@ -83,13 +83,13 @@ services:
   ####################################################################################################
   # Redis
   ####################################################################################################
-  redis:
-    image: redis:alpine
-    command: redis-server --appendonly yes
-    volumes:
-      - ./Docker/redis/data:/data
-    ports:
-      - "${REDIS_PORT}:6379"
+  # redis:
+  #   image: redis:alpine
+  #   command: redis-server --appendonly yes
+  #   volumes:
+  #     - ./Docker/redis/data:/data
+  #   ports:
+  #     - "${REDIS_PORT}:6379"
   
   ####################################################################################################
   # Laravel Schedule Worker

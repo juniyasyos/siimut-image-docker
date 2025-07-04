@@ -90,7 +90,7 @@ services:
   #     - ./Docker/redis/data:/data
   #   ports:
   #     - "${REDIS_PORT}:6379"
-  
+
   ####################################################################################################
   # Laravel Schedule Worker
   ####################################################################################################
@@ -104,18 +104,26 @@ services:
     depends_on:
       - php
       - db
-      - redis
-  
+      # - redis
+
   queue:
     build:
       context: ./Docker/php
       dockerfile: Dockerfile.alpine
     volumes:
       - laravel_app:/var/www
-    command: ["php", "/var/www/artisan", "queue:work", "redis", "--sleep=3", "--tries=3"]
+    command:
+      [
+        "php",
+        "/var/www/artisan",
+        "queue:work",
+        "redis",
+        "--sleep=3",
+        "--tries=3",
+      ]
     depends_on:
       - php
-      - redis
+      # - redis
 
   # ####################################################################################################
   # # DATABASE (MariaDB)

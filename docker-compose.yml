@@ -90,32 +90,40 @@ services:
       - ./Docker/redis/data:/data
     ports:
       - "${REDIS_PORT}:6379"
-  
+
   ####################################################################################################
   # Laravel Schedule Worker
   ####################################################################################################
-  schedule:
-    build:
-      context: ./Docker/php
-      dockerfile: Dockerfile.alpine
-    volumes:
-      - laravel_app:/var/www
-    command: ["php", "/var/www/artisan", "schedule:work"]
-    depends_on:
-      - php
-      - db
-      - redis
-  
-  queue:
-    build:
-      context: ./Docker/php
-      dockerfile: Dockerfile.alpine
-    volumes:
-      - laravel_app:/var/www
-    command: ["php", "/var/www/artisan", "queue:work", "redis", "--sleep=3", "--tries=3"]
-    depends_on:
-      - php
-      - redis
+  worker:
+    image: juniyasyos/siimut-app:latest
+    command: >
+      sh -c "
+        php artisan queue:work redis --sleep=3 --tries=3 &
+        php artisan schedule:work
+      "
+      
+  # schedule:
+  #   build:
+  #     context: ./Docker/php
+  #     dockerfile: Dockerfile.alpine
+  #   volumes:
+  #     - laravel_app:/var/www
+  #   command: ["php", "/var/www/artisan", "schedule:work"]
+  #   depends_on:
+  #     - php
+  #     - db
+  #     - redis
+
+  # queue:
+  #   build:
+  #     context: ./Docker/php
+  #     dockerfile: Dockerfile.alpine
+  #   volumes:
+  #     - laravel_app:/var/www
+  #   command: ["php", "/var/www/artisan", "queue:work", "redis", "--sleep=3", "--tries=3"]
+  #   depends_on:
+  #     - php
+  #     - redis
 
   # ####################################################################################################
   # # DATABASE (MariaDB)

@@ -1,0 +1,14 @@
+# Laravel app pada localhost:8088 / 8443
+localhost {
+    tls internal
+
+    @laravel path not_starts_with /phpmyadmin
+
+    root * /var/www/public
+    php_fastcgi php:9000
+    file_server
+    encode gzip
+
+    # phpMyAdmin tetap bisa diakses dengan path /phpmyadmin
+    reverse_proxy /phpmyadmin* phpmyadmin:80
+}

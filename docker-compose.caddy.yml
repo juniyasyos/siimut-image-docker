@@ -8,7 +8,7 @@ services:
   # PHP
   ####################################################################################################
   php:
-    image: juniyasyos/siimut-app:alpine-1.3.4
+    image: juniyasyos/siimut-app:alpine-1.3.5
     restart: unless-stopped
     ports:
       - "${VITE_PORT}:5173"
@@ -113,7 +113,7 @@ services:
   # Laravel Schedule Worker
   ####################################################################################################
   worker:
-    image: juniyasyos/siimut-app:alpine-1.3.3
+    image: juniyasyos/siimut-app:alpine-1.3.5
     command: >
       sh -c "
         php artisan queue:work redis --sleep=3 --tries=3 &

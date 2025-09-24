@@ -27,4 +27,4 @@ site/*
 
 Docker/db/data/*
 Docker/db/sql/*
-Docker/redis/data/*
+Docker/redis/data/

@@ -1,62 +1,71 @@
 services:
   ####################################################################################################
-  # PHP-FPM (Official Image, No Custom Build)
+  # Caddy Web Server (using reference pattern)
   ####################################################################################################
-  php:
-    image: php:8.2-fpm-alpine
-    restart: unless-stopped
+  web:
+    image: caddy:2-alpine
+    container_name: ${STACK_NAME:-siimut}-web
+    ports:
+      - "${WEB_HTTP_PORT:-8080}:8080"
+      - "443:443"   # TLS support
     volumes:
-      - ./site/si-imut:/var/www
+      - ./Docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site/${APP_DIR:-si-imut}:/var/www/html
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  ####################################################################################################
+  # PHP Application (renamed from php to app, following reference)
+  ####################################################################################################
+  app:
+    build:
+      context: .
+      dockerfile: Docker/php/Dockerfile.caddy
+    container_name: ${STACK_NAME:-siimut}-app
+    working_dir: /var/www/html
+    user: root
+
+    volumes:
+      - ./site/${APP_DIR:-si-imut}:/var/www/html
       - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
       - ./Docker/php/entrypoint.sh:/entrypoint.sh
+      # Pisahkan vendor ke named volume agar tidak berada di bind mount Windows  
+      - vendor_data:/var/www/html/vendor
+    env_file:
+      - .env.docker
     environment:
-      - COMPOSER_CACHE_DIR=/tmp/composer
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-siimut}
-      - MYSQL_USER=${MYSQL_USER:-siimut}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-secret}
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      COMPOSER_CACHE_DIR: /tmp/composer
     entrypoint: ["/entrypoint.sh"]
-    command: ["php-fpm"]
+    command: ["php-fpm", "-F"]
     depends_on:
       - db
-      - redis
-    working_dir: /var/www
-
-  ####################################################################################################
-  # Caddy Web Server
-  ####################################################################################################
-  caddy:
-    image: caddy:2.7-alpine
     restart: unless-stopped
 
-    ports:
-      - "${APP_PORT:-8000}:80"
-      - "443:443"
-    volumes:
-      - ./site/si-imut:/var/www
-      - ./Docker/caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ./Docker/caddy/data:/data
-      - ./Docker/caddy/config:/config
-    depends_on:
-      - php
-
   ####################################################################################################
-  # DATABASE (MariaDB)
+  # DATABASE (MariaDB - keeping existing but with reference style naming)
   ####################################################################################################
   db:
     image: mariadb:10.11
+    container_name: ${STACK_NAME:-siimut}-db
     restart: unless-stopped
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "${DB_PORT:-3306}:3306"
     volumes:
-      - ./Docker/db/data:/var/lib/mysql
+      - db_data:/var/lib/mysql
       - ./Docker/logs:/var/log/mysql
       - ./Docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
       - ./Docker/db/sql:/docker-entrypoint-initdb.d
+    env_file:
+      - .env.docker
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-secret}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-siimut}
-      MYSQL_USER: ${MYSQL_USER:-siimut}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -90,27 +99,6 @@ services:
       - db
 
   ####################################################################################################
-  # Adminer
-  ####################################################################################################
-  # adminer:
-  #     image: adminer
-  #     restart: unless-stopped
-        # ports:
-  #         - 9090:8080
-  #     depends_on:
-  #     - db
-
-  ####################################################################################################
-  # Mailpit
-  ####################################################################################################
-  # mail:
-  #   image: axllent/mailpit:latest
-  #   restart: unless-stopped
-  # ports:
-  #     - "${MAIL_WEB_PORT}:8025"
-  #     - "${MAIL_SMTP_PORT}:1025"
-
-  ####################################################################################################
   # Redis
   ####################################################################################################
   redis:
@@ -123,13 +111,13 @@ services:
       - "${REDIS_PORT:-6379}:6379"
 
   ####################################################################################################
-  # Laravel Queue Worker
+  # Laravel Queue Worker (updated dependencies)
   ####################################################################################################
   worker:
-    image: php:8.2-fpm-alpine
+    image: php:8.4-fpm-alpine
     restart: unless-stopped
     volumes:
-      - ./site/si-imut:/var/www
+      - ./site/${APP_DIR:-si-imut}:/var/www
       - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
       - ./Docker/php/entrypoint.sh:/entrypoint.sh
     entrypoint: ["/entrypoint.sh"]
@@ -140,8 +128,17 @@ services:
         php artisan schedule:work
       "
     depends_on:
-      - php
+      - app
       - db
       - redis
     working_dir: /var/www
+
+####################################################################################################
+# Named Volumes (following reference pattern)
+####################################################################################################
+volumes:
+  caddy_data:
+  caddy_config:
+  db_data:
+  vendor_data:
 

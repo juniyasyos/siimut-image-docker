@@ -1,5 +1,7 @@
 # Ignore Laravel environment file
 .env
+.env.development
+.env.production
 
 # Ignore vendor and node_modules (jika belum ditulis)
 vendor/

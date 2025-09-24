@@ -1,0 +1,32 @@
+# Caddy Configuration for Test Environment
+:8080 {
+    root * /var/www/html
+    
+    # Enable gzip compression
+    encode gzip
+    
+    # Handle PHP files
+    php_fastcgi app:9000
+    
+    # Try files (for clean URLs)
+    try_files {path} {path}/ /index.php?{query}
+    
+    # Security headers
+    header {
+        # Remove server info
+        -Server
+        # Security headers
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+    }
+    
+    # File server for static files
+    file_server
+    
+    # Access log
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}

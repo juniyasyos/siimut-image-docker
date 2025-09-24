@@ -2,24 +2,117 @@ services:
   ####################################################################################################
   # PHP-FPM (Official Image, No Custom Build)
   ####################################################################################################
-  php:
-    image: php:8.2-fpm-alpine
-    restart: unless-stopped
+  services:
+  ####################################################################################################
+  # Caddy Web Server
+  ####################################################################################################
+  web:
+    image: caddy:2-alpine
+    container_name: ${STACK_NAME:-siimut}-web
+    ports:
+      - "${WEB_HTTP_PORT:-8080}:8080"
+      # - "443:443"   # aktifkan kalau mau TLS lokal (Caddy otomatis)
     volumes:
-      - ./site/si-imut:/var/www
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./index.php:/var/www/html/index.php
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  ####################################################################################################
+  # PHP-FPM Application
+  ####################################################################################################
+  app:
+    image: php:8.3-fpm-alpine
+    container_name: ${STACK_NAME:-siimut}-app
+    working_dir: /var/www/html
+    volumes:
+      - ./index.php:/var/www/html/index.php
       - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
       - ./Docker/php/entrypoint.sh:/entrypoint.sh
+    env_file:
+      - .env.docker
     environment:
-      - COMPOSER_CACHE_DIR=/tmp/composer
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-siimut}
-      - MYSQL_USER=${MYSQL_USER:-siimut}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-secret}
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-siimut_prod}
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     entrypoint: ["/entrypoint.sh"]
     command: ["php-fpm"]
     depends_on:
       - db
       - redis
-    working_dir: /var/www
+    restart: unless-stopped
+
+  ####################################################################################################
+  # Database (MariaDB)
+  ####################################################################################################
+  db:
+    image: mariadb:10.11
+    container_name: ${STACK_NAME:-siimut}-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-siimut_prod}
+      MYSQL_USER: ${DB_USERNAME:-root}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-root}
+    volumes:
+      - ./Docker/db/my.cnf:/etc/mysql/my.cnf
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      start_interval: 10s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  ####################################################################################################
+  # Redis
+  ####################################################################################################
+  redis:
+    image: redis:alpine
+    container_name: ${STACK_NAME:-siimut}-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  ####################################################################################################
+  # phpMyAdmin
+  ####################################################################################################
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ${STACK_NAME:-siimut}-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_PASSWORD:-root}
+      UPLOAD_LIMIT: 500M
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    volumes:
+      - phpmyadmin_sessions:/sessions
+
+volumes:
+  caddy_data:
+  caddy_config:
+  db_data:
+  redis_data:
+  phpmyadmin_sessions:
 
   ####################################################################################################
   # Caddy Web Server
@@ -126,7 +219,7 @@ services:
   # Laravel Queue Worker
   ####################################################################################################
   worker:
-    image: php:8.2-fpm-alpine
+    image: php:8.3-fpm-alpine
     restart: unless-stopped
     volumes:
       - ./site/si-imut:/var/www

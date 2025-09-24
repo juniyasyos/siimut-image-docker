@@ -1,0 +1,109 @@
+services:
+  ####################################################################################################
+  # Caddy Web Server
+  ####################################################################################################
+  web:
+    image: caddy:2-alpine
+    container_name: ${STACK_NAME:-laravel}-web
+    ports:
+      - "${WEB_HTTP_PORT:-8081}:8080"
+      # - "443:443"   # aktifkan kalau mau TLS lokal (Caddy otomatis)
+    volumes:
+      - ./Docker/caddy/Caddyfile-test:/etc/caddy/Caddyfile:ro
+      - ./test:/var/www/html
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  ####################################################################################################
+  # PHP-FPM Application
+  ####################################################################################################
+  app:
+    image: php:8.3-fpm-alpine
+    container_name: ${STACK_NAME:-laravel}-app
+    working_dir: /var/www/html
+    user: root
+    volumes:
+      - ./test:/var/www/html
+      - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./Docker/php/entrypoint.sh:/entrypoint.sh
+    environment:
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-siimut}
+      MYSQL_USER: ${MYSQL_USER:-siimut}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
+    entrypoint: ["/entrypoint.sh"]
+    command: ["php-fpm"]
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  ####################################################################################################
+  # DATABASE (MariaDB)
+  ####################################################################################################
+  db:
+    image: mariadb:10.11
+    container_name: ${STACK_NAME:-laravel}-db
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ./Docker/db/my.cnf:/etc/mysql/my.cnf
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-siimut_prod}
+      MYSQL_USER: ${MYSQL_USER:-siimut}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  ####################################################################################################
+  # Redis Cache
+  ####################################################################################################
+  redis:
+    image: redis:alpine
+    container_name: ${STACK_NAME:-laravel}-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+
+  ####################################################################################################
+  # phpMyAdmin
+  ####################################################################################################
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ${STACK_NAME:-laravel}-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      UPLOAD_LIMIT: 500M
+    volumes:
+      - ./Docker/phpmyadmin/sessions:/sessions:rw
+    user: "33:33"
+    depends_on:
+      - db
+
+####################################################################################################
+# Volumes
+####################################################################################################
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  db_data:
+    driver: local
+  redis_data:
+    driver: local

@@ -1,0 +1,147 @@
+services:
+  ####################################################################################################
+  # PHP-FPM (Official Image, No Custom Build)
+  ####################################################################################################
+  php:
+    image: php:8.2-fpm-alpine
+    restart: unless-stopped
+    volumes:
+      - ./site/si-imut:/var/www
+      - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./Docker/php/entrypoint.sh:/entrypoint.sh
+    environment:
+      - COMPOSER_CACHE_DIR=/tmp/composer
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-siimut}
+      - MYSQL_USER=${MYSQL_USER:-siimut}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-secret}
+    entrypoint: ["/entrypoint.sh"]
+    command: ["php-fpm"]
+    depends_on:
+      - db
+      - redis
+    working_dir: /var/www
+
+  ####################################################################################################
+  # Caddy Web Server
+  ####################################################################################################
+  caddy:
+    image: caddy:2.7-alpine
+    restart: unless-stopped
+
+    ports:
+      - "${APP_PORT:-8000}:80"
+      - "443:443"
+    volumes:
+      - ./site/si-imut:/var/www
+      - ./Docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./Docker/caddy/data:/data
+      - ./Docker/caddy/config:/config
+    depends_on:
+      - php
+
+  ####################################################################################################
+  # DATABASE (MariaDB)
+  ####################################################################################################
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ./Docker/db/data:/var/lib/mysql
+      - ./Docker/logs:/var/log/mysql
+      - ./Docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./Docker/db/sql:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-siimut}
+      MYSQL_USER: ${MYSQL_USER:-siimut}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ####################################################################################################
+  # phpMyAdmin
+  ####################################################################################################
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8080}:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 1024M
+      MEMORY_LIMIT: 1024M
+      POST_MAX_SIZE: 1024M
+      MAX_EXECUTION_TIME: 600
+      MAX_INPUT_TIME: 600
+      MAX_INPUT_VARS: 10000
+    volumes:
+      - ./Docker/phpmyadmin/sessions:/sessions
+      - ./Docker/phpmyadmin/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./Docker/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php
+    user: "33:33"
+    depends_on:
+      - db
+
+  ####################################################################################################
+  # Adminer
+  ####################################################################################################
+  # adminer:
+  #     image: adminer
+  #     restart: unless-stopped
+        # ports:
+  #         - 9090:8080
+  #     depends_on:
+  #     - db
+
+  ####################################################################################################
+  # Mailpit
+  ####################################################################################################
+  # mail:
+  #   image: axllent/mailpit:latest
+  #   restart: unless-stopped
+  # ports:
+  #     - "${MAIL_WEB_PORT}:8025"
+  #     - "${MAIL_SMTP_PORT}:1025"
+
+  ####################################################################################################
+  # Redis
+  ####################################################################################################
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - ./Docker/redis/data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  ####################################################################################################
+  # Laravel Queue Worker
+  ####################################################################################################
+  worker:
+    image: php:8.2-fpm-alpine
+    restart: unless-stopped
+    volumes:
+      - ./site/si-imut:/var/www
+      - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
+      - ./Docker/php/entrypoint.sh:/entrypoint.sh
+    entrypoint: ["/entrypoint.sh"]
+    command: >
+      sh -c "
+        cd /var/www &&
+        php artisan queue:work redis --sleep=3 --tries=3 &
+        php artisan schedule:work
+      "
+    depends_on:
+      - php
+      - db
+      - redis
+    working_dir: /var/www
+

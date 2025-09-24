@@ -1,0 +1,190 @@
+---
+- name: Setup SIIMUT Server
+  hosts: siimut_servers
+  become: yes
+  vars:
+    app_name: "siimut"
+    app_user: "siimut"
+    app_dir: "/opt/siimut"
+    repo_url: "{{ siimut_repo | default('https://github.com/juniyasyos/si-imut.git') }}"
+    repo_branch: "{{ siimut_branch | default('fix-chart') }}"
+    repo_name: "{{ repo_url | basename | regex_replace('\\.git$', '') }}"
+    docker_compose_version: "2.21.0"
+
+  tasks:
+    - name: Update system packages (RedHat)
+      package:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Update apt cache (Debian)
+      apt:
+        update_cache: yes
+        upgrade: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      package:
+        name:
+          - git
+          - curl
+          - wget
+          - unzip
+          - ca-certificates
+          - gnupg
+          - lsb-release
+          - netcat-openbsd
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        home: "/home/{{ app_user }}"
+        create_home: yes
+        groups: docker
+        append: yes
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Add Docker GPG key (Debian)
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add Docker repository (Debian)
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker
+      package:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+        state: present
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    - name: Download Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Clone SIIMUT docker repository  
+      git:
+        repo: "https://github.com/juniyasyos/siimut-image-docker.git"
+        dest: "{{ app_dir }}/siimut-image-docker"
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Create site directory
+      file:
+        path: "{{ app_dir }}/siimut-image-docker/site"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Clone SIIMUT application repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}/siimut-image-docker/site/{{ repo_name }}"  
+        version: "{{ repo_branch }}"
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Create Docker directories
+      file:
+        path: "{{ app_dir }}/siimut-image-docker/Docker/{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+      loop:
+        - caddy/data
+        - caddy/config
+        - db/data
+        - redis/data
+        - phpmyadmin/sessions
+        - logs
+
+    - name: Set proper permissions for phpMyAdmin sessions
+      file:
+        path: "{{ app_dir }}/siimut-image-docker/Docker/phpmyadmin/sessions"
+        owner: "33"
+        group: "33"
+        mode: '0755'
+
+    - name: Create environment file
+      template:
+        src: .env.j2
+        dest: "{{ app_dir }}/siimut-image-docker/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+
+    - name: Install firewall (Debian)
+      package:
+        name: ufw
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Configure firewall rules
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"
+        - "80"
+        - "443"
+        - "8000"
+        - "8080"
+      when: ansible_os_family == "Debian"
+
+    - name: Enable firewall
+      ufw:
+        state: enabled
+      when: ansible_os_family == "Debian"
+
+    - name: Create systemd service for SIIMUT
+      template:
+        src: siimut.service.j2
+        dest: /etc/systemd/system/siimut.service
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Start and enable SIIMUT service
+      systemd:
+        name: siimut
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

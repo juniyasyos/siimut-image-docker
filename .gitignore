@@ -20,3 +20,9 @@ Docker/db/data/*
 
 # Sertificate 
 *.crt
+
+site/*
+
+Docker/db/data/*
+Docker/db/sql/*
+Docker/redis/data/*

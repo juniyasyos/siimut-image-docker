@@ -1,0 +1,143 @@
+FROM php:8.4-fpm-alpine AS base
+
+# Arguments untuk git clone
+ARG SIIMUT_REPO=https://github.com/juniyasyos/siimut.git
+ARG SIIMUT_BRANCH=master
+
+# Opsi Alpine: lebih kecil, pakai apk, bukan apt-get
+RUN apk update && apk add --no-cache \
+    bash \
+    git \
+    curl \
+    vim \
+    libzip-dev \
+    icu-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    oniguruma-dev \
+    zlib-dev \
+    libpq-dev \
+    mariadb-client \
+    nodejs \
+    npm \
+    unzip \
+    g++ \
+    make \
+    autoconf \
+    build-base \
+    linux-headers \
+    && rm -rf /var/cache/apk/*
+
+# Copy konfigurasi
+COPY php.ini /usr/local/etc/php/
+COPY docker.conf /usr/local/etc/php-fpm.d/docker.conf
+COPY .bashrc /root/
+COPY entrypoint-new.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Ekstensi PHP
+RUN docker-php-ext-configure intl \
+ && docker-php-ext-configure gd \
+     --with-freetype \
+     --with-jpeg \
+ && docker-php-ext-install \
+     intl \
+     gd \
+     zip \
+     pdo_mysql \
+     pdo_pgsql \
+     pgsql \
+     pcntl \
+     exif
+
+# Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    PATH="$PATH:/root/.composer/vendor/bin"
+    
+RUN composer config --global process-timeout 3600
+
+# Setup working directory
+WORKDIR /var/www
+
+# Git config untuk safe directory
+RUN git config --global --add safe.directory /var/www
+
+# Set proper permissions for www-data
+RUN chown -R www-data:www-data /var/www
+
+# Create entrypoint script untuk setup otomatis
+RUN cat > /usr/local/bin/setup-laravel.sh << 'EOF'
+#!/bin/bash
+set -e
+
+cd /var/www
+
+# Cek apakah ada .env, kalau tidak copy dari .env.example
+if [ ! -f .env ]; then
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo "✅ Copied .env.example to .env"
+    fi
+fi
+
+# Update .env dengan config Docker
+if [ -f .env ]; then
+    sed -i 's/^APP_NAME=.*/APP_NAME="SIIMUT"/' .env
+    sed -i 's/^APP_ENV=.*/APP_ENV=staging/' .env
+    sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env
+    sed -i 's/^DB_HOST=.*/DB_HOST=db/' .env
+    sed -i 's/^DB_DATABASE=.*/DB_DATABASE=siimut_prod/' .env
+    sed -i 's/^DB_USERNAME=.*/DB_USERNAME=siimut/' .env
+    sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=password-siimut/' .env
+    sed -i 's/^REDIS_CLIENT=.*/REDIS_CLIENT=phpredis/' .env
+    sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' .env
+    sed -i 's/^REDIS_PASSWORD=.*/REDIS_PASSWORD=null/' .env
+    sed -i 's/^REDIS_PORT=.*/REDIS_PORT=6379/' .env
+    sed -i 's/^CACHE_STORE=.*/CACHE_STORE=redis/' .env
+    sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=redis/' .env
+    sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=redis/' .env
+    echo "✅ Updated .env configuration"
+fi
+
+# Install dependencies jika belum ada vendor
+if [ ! -d vendor ]; then
+    echo "📦 Installing Composer dependencies..."
+    composer install --no-dev --optimize-autoloader
+fi
+
+# Install NPM dependencies jika belum ada node_modules
+if [ ! -d node_modules ]; then
+    echo "📦 Installing NPM dependencies..."
+    npm install
+fi
+
+# Build assets jika belum ada
+if [ ! -d public/build ]; then
+    echo "🔨 Building assets..."
+    npm run build
+fi
+
+# Generate APP_KEY jika belum ada
+if ! grep -q "APP_KEY=base64:" .env 2>/dev/null; then
+    echo "🔑 Generating application key..."
+    php artisan key:generate
+fi
+
+# Set permissions
+chown -R www-data:www-data /var/www
+chmod -R ug+rw storage bootstrap/cache
+
+echo "🚀 Laravel setup completed successfully!"
+EOF
+
+RUN chmod +x /usr/local/bin/setup-laravel.sh
+
+EXPOSE 5173
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php-fpm"]

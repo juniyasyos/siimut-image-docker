@@ -1,89 +1,147 @@
 services:
   ####################################################################################################
-  # Caddy Web Server (using reference pattern)
+  # Caddy Web Server - Production Optimized
   ####################################################################################################
   web:
     image: caddy:2-alpine
     container_name: ${STACK_NAME:-siimut}-web
     ports:
       - "${WEB_HTTP_PORT:-8080}:8080"
-      - "443:443"   # TLS support
+      - "443:443"   # TLS support for production
     volumes:
-      - ./Docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./site/${APP_DIR:-si-imut}:/var/www/html
+      # Use production optimized Caddyfile
+      - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site/${APP_DIR:-si-imut}:/var/www/html:ro  # Read-only for security
       - caddy_data:/data
       - caddy_config:/config
+      - caddy_logs:/var/log/caddy
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   ####################################################################################################
-  # PHP Application (renamed from php to app, following reference)
+  # PHP Application - Production Optimized (No Redis)
   ####################################################################################################
   app:
     build:
       context: .
-      dockerfile: Docker/php/Dockerfile.caddy
+      dockerfile: DockerNew/php/Dockerfile.production
+      args:
+        APP_ENV: ${APP_ENV:-production}
+        ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     container_name: ${STACK_NAME:-siimut}-app
     working_dir: /var/www/html
-    user: root
-
+    user: "1000:1000"  # Non-root for security
     volumes:
-      - ./site/${APP_DIR:-si-imut}:/var/www/html
-      - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
-      - ./Docker/php/entrypoint.sh:/entrypoint.sh
-      # Pisahkan vendor ke named volume agar tidak berada di bind mount Windows  
+      - ./site/${APP_DIR:-si-imut}:/var/www/html:cached  # Cached for performance
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+      # Separate vendor from bind mount for better performance
       - vendor_data:/var/www/html/vendor
+      - storage_data:/var/www/html/storage
+      - bootstrap_cache:/var/www/html/bootstrap/cache
     env_file:
-      - .env.docker
+      - .env.production
     environment:
-      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "${PHP_OPCACHE_VALIDATE_TIMESTAMPS:-0}"
       COMPOSER_CACHE_DIR: /tmp/composer
-    entrypoint: ["/entrypoint.sh"]
+      APP_ENV: ${APP_ENV:-production}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
     command: ["php-fpm", "-F"]
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "php-fpm", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   ####################################################################################################
-  # DATABASE (MariaDB - keeping existing but with reference style naming)
+  # DATABASE (MariaDB) - Production Optimized
   ####################################################################################################
   db:
     image: mariadb:10.11
     container_name: ${STACK_NAME:-siimut}-db
     restart: unless-stopped
-    ports:
-      - "${DB_PORT:-3306}:3306"
+    # Security: Remove external port exposure for production
+    # ports:
+    #   - "${DB_PORT:-3306}:3306"  # Comment out for production security
     volumes:
       - db_data:/var/lib/mysql
-      - ./Docker/logs:/var/log/mysql
-      - ./Docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
-      - ./Docker/db/sql:/docker-entrypoint-initdb.d
+      - db_logs:/var/log/mysql
+      - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
     env_file:
-      - .env.docker
+      - .env.production
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # Production security
+      MYSQL_RANDOM_ROOT_PASSWORD: ${MYSQL_RANDOM_ROOT_PASSWORD:-no}
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 60s
 
   ####################################################################################################
-  # phpMyAdmin
+  # phpMyAdmin - Development/Staging Tool (Keep as requested)
   ####################################################################################################
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: ${STACK_NAME:-siimut}-phpmyadmin
     restart: unless-stopped
     ports:
-      - "${PMA_PORT:-8080}:80"
+      - "${PMA_PORT:-8081}:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
       PMA_ARBITRARY: 1
+      PMA_ABSOLUTE_URI: http://localhost:${PMA_PORT:-8081}/
+      # Enhanced limits for production data
       UPLOAD_LIMIT: 1024M
       MEMORY_LIMIT: 1024M
       POST_MAX_SIZE: 1024M
@@ -91,54 +149,157 @@ services:
       MAX_INPUT_TIME: 600
       MAX_INPUT_VARS: 10000
     volumes:
-      - ./Docker/phpmyadmin/sessions:/sessions
-      - ./Docker/phpmyadmin/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
-      - ./Docker/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php
+      - phpmyadmin_sessions:/sessions
+      - ./DockerNew/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php:ro
     user: "33:33"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    # Resource limits for phpMyAdmin
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
 
   ####################################################################################################
-  # Redis
+  # Redis - DISABLED (Command untuk sehat, kenapa harus pakai obat)
   ####################################################################################################
-  redis:
-    image: redis:alpine
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - ./Docker/redis/data:/data
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: ${STACK_NAME:-siimut}-redis
+  #   restart: unless-stopped
+  #   command: |
+  #     sh -c "
+  #       redis-server 
+  #       --appendonly yes 
+  #       --appendfsync everysec 
+  #       --maxmemory 256m 
+  #       --maxmemory-policy allkeys-lru
+  #       --tcp-keepalive 60
+  #       --timeout 300
+  #     "
+  #   volumes:
+  #     - redis_data:/data
+  #     - redis_logs:/var/log/redis
+  #   # Security: Remove external port exposure for production
+  #   # ports:
+  #   #   - "${REDIS_PORT:-6379}:6379"  # Comment out for production
+  #   # Production resource limits
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 384M
+  #         cpus: '0.5'
+  #       reservations:
+  #         memory: 256M
+  #         cpus: '0.25'
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   ####################################################################################################
-  # Laravel Queue Worker (updated dependencies)
+  # Laravel Queue Worker - Database-based (No Redis)
   ####################################################################################################
   worker:
-    image: php:8.4-fpm-alpine
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.production
+      args:
+        APP_ENV: ${APP_ENV:-production}
+        ENABLE_XDEBUG: false
+    container_name: ${STACK_NAME:-siimut}-worker
     restart: unless-stopped
     volumes:
-      - ./site/${APP_DIR:-si-imut}:/var/www
-      - ./Docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini
-      - ./Docker/php/entrypoint.sh:/entrypoint.sh
-    entrypoint: ["/entrypoint.sh"]
+      - ./site/${APP_DIR:-si-imut}:/var/www/html:cached
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - vendor_data:/var/www/html/vendor
+      - storage_data:/var/www/html/storage
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      CONTAINER_ROLE: worker
     command: >
       sh -c "
-        cd /var/www &&
-        php artisan queue:work redis --sleep=3 --tries=3 &
+        cd /var/www/html &&
+        php artisan queue:work database 
+          --sleep=3 
+          --tries=3 
+          --max-time=3600 
+          --memory=256 
+          --timeout=90 &
         php artisan schedule:work
       "
     depends_on:
-      - app
-      - db
-      - redis
-    working_dir: /var/www
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    working_dir: /var/www/html
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "php", "artisan", "queue:monitor", "||", "exit", "1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
 
 ####################################################################################################
-# Named Volumes (following reference pattern)
+# Named Volumes - Production Optimized (No Redis)
 ####################################################################################################
 volumes:
+  # Web server data
   caddy_data:
+    driver: local
   caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local
+    
+  # Database data with backup considerations
   db_data:
+    driver: local
+  db_logs:
+    driver: local
+    
+  # Redis data - DISABLED (sehat, kenapa harus pakai obat)
+  # redis_data:
+  #   driver: local
+  # redis_logs:
+  #   driver: local
+    
+  # PHP application data
   vendor_data:
+    driver: local
+  storage_data:
+    driver: local
+  bootstrap_cache:
+    driver: local
+    
+  # phpMyAdmin sessions
+  phpmyadmin_sessions:
+    driver: local
+
+####################################################################################################
+# Networks - Production Security
+####################################################################################################
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 

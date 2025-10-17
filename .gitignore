@@ -1,6 +1,9 @@
-# Ignore Laravel environment file
+# Ignore Laravel environment files
 .env
 .env.development
+.env.production
+.env.local
+.env.staging
 
 # Ignore vendor and node_modules (jika belum ditulis)
 vendor/
@@ -24,6 +27,124 @@ Docker/db/data/*
 
 site/*
 
+# ===========================================
+# DOCKER DATA & SENSITIVE FILES
+# ===========================================
+
+# Original Docker folder data
 Docker/db/data/*
 Docker/db/sql/*
 Docker/redis/data/*
+Docker/logs/*
+Docker/phpmyadmin/sessions/*
+
+# ===========================================
+# DockerNew - PRODUCTION DATA PROTECTION  
+# ===========================================
+
+# Database data and logs (SENSITIVE)
+DockerNew/db/data/
+DockerNew/db/logs/
+DockerNew/db/sql/*.sql
+!DockerNew/db/sql/.gitignore
+
+# Redis data (SENSITIVE)
+DockerNew/redis/data/
+DockerNew/redis/logs/
+
+# Caddy logs and certificates (SENSITIVE)
+DockerNew/caddy/data/
+DockerNew/caddy/config/
+DockerNew/caddy/logs/
+DockerNew/caddy/*.crt
+DockerNew/caddy/*.key
+DockerNew/caddy/*.pem
+
+# PHP logs and sessions (SENSITIVE)
+DockerNew/php/logs/
+DockerNew/php/sessions/
+
+# phpMyAdmin sessions and config backups (SENSITIVE)
+DockerNew/phpmyadmin/sessions/
+DockerNew/phpmyadmin/config.backup.php
+DockerNew/phpmyadmin/tmp/
+
+# Application logs (SENSITIVE)
+DockerNew/logs/
+DockerNew/*/logs/
+
+# Backup files (VERY SENSITIVE)
+DockerNew/**/*.backup
+DockerNew/**/*.bak
+DockerNew/**/*.dump
+DockerNew/**/*.sql.gz
+DockerNew/**/*.tar.gz
+
+# ===========================================
+# DOCKER VOLUMES & RUNTIME DATA
+# ===========================================
+
+# Docker volumes that may be mounted locally
+caddy_data/
+caddy_config/
+caddy_logs/
+db_data/
+db_logs/
+redis_data/
+redis_logs/
+vendor_data/
+storage_data/
+bootstrap_cache/
+phpmyadmin_sessions/
+
+# ===========================================
+# PRODUCTION SENSITIVE FILES
+# ===========================================
+
+# Production environment files with real credentials
+.env.production.local
+.env.production.backup
+*.production.env
+
+# SSL/TLS certificates and private keys
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx
+ssl/
+certs/
+
+# Database dumps and backups
+*.sql
+*.dump
+*.backup
+backup_*
+dumps/
+
+# Log files
+*.log
+logs/
+log/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

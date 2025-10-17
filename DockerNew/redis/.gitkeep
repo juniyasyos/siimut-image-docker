@@ -1,0 +1,11 @@
+# Placeholder untuk direktori redis
+# File ini memastikan direktori redis tetap ada di git
+# tapi data sensitif tidak ikut ter-commit
+
+# Data files yang akan di-ignore:
+# - dump.rdb
+# - appendonly.aof
+# - Redis cache data
+# - Session data
+
+# Direktori ini akan berisi data files saat container berjalan

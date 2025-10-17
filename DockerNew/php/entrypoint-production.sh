@@ -182,9 +182,10 @@ else
     exit 1
 fi
 
-echo "✅ All checks passed! Starting PHP-FPM..."
+echo "✅ All checks passed! Starting Supervisor..."
 echo "💡 Using database for: cache, sessions, queues (Simple & Reliable)"
+echo "🔄 Supervisor will manage: PHP-FPM, Queue Worker, Scheduler"
 echo "📊 Container ready at: $(date)"
 
-# Start the main process
+# Start the main process (should be supervisord)
 exec "$@"

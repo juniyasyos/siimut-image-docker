@@ -29,14 +29,14 @@ services:
           memory: 128M
           cpus: '0.25'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health", "||", "exit", "1"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/", "||", "exit", "1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
 
   ####################################################################################################
-  # PHP Application - Production Optimized (No Redis)
+  # PHP Application + Worker + Scheduler - Unified with Supervisor (Hospital Single-App)
   ####################################################################################################
   app:
     build:
@@ -47,12 +47,14 @@ services:
         ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
         UID: ${UID:-1000}
         GID: ${GID:-1000}
+    image: ${STACK_NAME:-siimut}-app:latest  # Tag for potential reuse
     container_name: ${STACK_NAME:-siimut}-app
     working_dir: /var/www/html
     user: "1000:1000"  # Non-root for security
     volumes:
       - ./site/${APP_DIR:-si-imut}:/var/www/html:cached  # Cached for performance
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
       # Separate vendor from bind mount for better performance
       - vendor_data:/var/www/html/vendor
@@ -66,22 +68,22 @@ services:
       APP_ENV: ${APP_ENV:-production}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
-    command: ["php-fpm", "-F"]
+    command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
-    # Production resource limits
+    # Production resource limits (increased for unified container)
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '1.0'
+          memory: 1.5G  # Increased for app + worker + scheduler
+          cpus: '1.5'
         reservations:
-          memory: 512M
-          cpus: '0.5'
+          memory: 768M
+          cpus: '0.75'
     healthcheck:
-      test: ["CMD", "php-fpm", "-t"]
+      test: ["CMD", "supervisorctl", "status", "||", "exit", "1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -134,6 +136,8 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     container_name: ${STACK_NAME:-siimut}-phpmyadmin
     restart: unless-stopped
+    profiles:
+      - dev  # Only start with --profile dev
     ports:
       - "${PMA_PORT:-8081}:80"
     environment:
@@ -204,58 +208,10 @@ services:
   #     retries: 3
 
   ####################################################################################################
-  # Laravel Queue Worker - Database-based (No Redis)
+  # Worker Service - REMOVED (Merged into app via Supervisor)
   ####################################################################################################
-  worker:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.production
-      args:
-        APP_ENV: ${APP_ENV:-production}
-        ENABLE_XDEBUG: false
-    container_name: ${STACK_NAME:-siimut}-worker
-    restart: unless-stopped
-    volumes:
-      - ./site/${APP_DIR:-si-imut}:/var/www/html:cached
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - vendor_data:/var/www/html/vendor
-      - storage_data:/var/www/html/storage
-    env_file:
-      - .env.production
-    environment:
-      APP_ENV: ${APP_ENV:-production}
-      CONTAINER_ROLE: worker
-    command: >
-      sh -c "
-        cd /var/www/html &&
-        php artisan queue:work database 
-          --sleep=3 
-          --tries=3 
-          --max-time=3600 
-          --memory=256 
-          --timeout=90 &
-        php artisan schedule:work
-      "
-    depends_on:
-      app:
-        condition: service_healthy
-      db:
-        condition: service_healthy
-    working_dir: /var/www/html
-    # Production resource limits
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-    healthcheck:
-      test: ["CMD", "php", "artisan", "queue:monitor", "||", "exit", "1"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
+  # worker service has been merged into app container for simplicity
+  # All background jobs and scheduling now handled by supervisord in app container
 
 ####################################################################################################
 # Named Volumes - Production Optimized (No Redis)

@@ -24,6 +24,8 @@ RUN apk add --no-cache \
       optipng jpegoptim \
       # Security tools
       openssl \
+      # Supervisor for process management
+      supervisor \
   && cp /usr/share/zoneinfo/${TZ} /etc/localtime && echo "${TZ}" > /etc/timezone \
   # PHP extensions configuration
   && docker-php-ext-configure intl \
@@ -199,14 +201,19 @@ RUN chown -R www:www storage bootstrap/cache public/storage || true \
  && chmod -R ug+rwX storage bootstrap/cache || true \
  && chmod -R 755 public || true
 
+# Setup supervisor directories and permissions
+RUN mkdir -p /var/log/supervisor /etc/supervisor/conf.d \
+ && chown -R www:www /var/log/supervisor \
+ && chmod -R 755 /var/log/supervisor
+
 # Switch to non-root user
 USER www
 EXPOSE 9000
 
-# Enhanced health check (No Redis)
+# Enhanced health check (No Redis, includes Supervisor)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD php -r "exit(extension_loaded('opcache') && extension_loaded('apcu') ? 0 : 1);" && \
-        php-fpm -t
+    CMD supervisorctl status | grep -q "RUNNING" && \
+        php -r "exit(extension_loaded('opcache') && extension_loaded('apcu') ? 0 : 1);"
 
 # Production entrypoint
 COPY DockerNew/php/entrypoint-production.sh /usr/local/bin/entrypoint.sh

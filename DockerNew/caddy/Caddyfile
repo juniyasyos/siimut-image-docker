@@ -1,0 +1,85 @@
+# =============================================
+# Caddy Configuration - Production Optimized
+# =============================================
+# Hospital SIIMUT - Single Laravel App Container
+# All static files served by PHP container (no bind mount)
+
+# Global options
+{
+	auto_https off
+	admin off
+}
+
+# Main site configuration
+:8080 {
+	# Security headers
+	header {
+		# HSTS (optional - enable if using HTTPS)
+		# Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		
+		# Content Security Policy (adjust for your app)
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+		
+		# Other security headers
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		
+		# Remove server identification
+		-Server
+	}
+
+	# Enable gzip compression for better performance
+	encode {
+		gzip 6
+		minimum_length 1000
+	}
+
+	# Health check endpoint
+	handle_path /health {
+		respond "OK" 200
+	}
+
+	# All requests go to PHP container (no static file serving from Caddy)
+	# Static files are served by PHP container since no bind mount in production
+	reverse_proxy app:9000 {
+		transport fastcgi {
+			split .php
+			env SCRIPT_FILENAME /var/www/html/public{path}
+			env PATH_INFO {path}
+			env QUERY_STRING {query}
+			env REQUEST_METHOD {method}
+			env CONTENT_TYPE {header.content-type}
+			env CONTENT_LENGTH {header.content-length}
+			env SERVER_SOFTWARE "Caddy/{version}"
+			env HTTPS {tls.protocol}
+			env SERVER_NAME {host}
+			env SERVER_PORT {port}
+			env REQUEST_URI {uri}
+		}
+	}
+
+	# Logging for production monitoring
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 100MB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
+
+	# Error handling
+	handle_errors {
+		@5xx expression {http.error.status_code} >= 500
+		handle @5xx {
+			respond "Internal Server Error" 500
+		}
+		
+		@4xx expression {http.error.status_code} >= 400
+		handle @4xx {
+			respond "Not Found" 404
+		}
+	}
+}

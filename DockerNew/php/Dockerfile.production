@@ -81,19 +81,15 @@ ENV COMPOSER_MEMORY_LIMIT=-1
 
 WORKDIR /var/www/html
 
-# Copy composer manifest using conditional approach since COPY doesn't support || true
-RUN mkdir -p ${APP_DIR}
+# Copy ALL source code into image (production: no bind mount)
 COPY . ./temp_context/
 RUN set -eux; \
-    if [ -f "temp_context/site/${APP_DIR}/composer.json" ]; then \
-        echo ">> Found composer.json in site/${APP_DIR}"; \
-        cp "temp_context/site/${APP_DIR}/composer.json" "${APP_DIR}/"; \
-        if [ -f "temp_context/site/${APP_DIR}/composer.lock" ]; then \
-            echo ">> Found composer.lock in site/${APP_DIR}"; \
-            cp "temp_context/site/${APP_DIR}/composer.lock" "${APP_DIR}/"; \
-        fi; \
+    if [ -d "temp_context/site/${APP_DIR}" ]; then \
+        echo ">> Copying entire Laravel app from site/${APP_DIR}"; \
+        cp -r "temp_context/site/${APP_DIR}/." "${APP_DIR}/"; \
     else \
-        echo ">> No composer.json found in site/${APP_DIR} - creating empty structure"; \
+        echo ">> No app found in site/${APP_DIR} - creating empty structure"; \
+        mkdir -p "${APP_DIR}"; \
         touch "${APP_DIR}/composer.json"; \
     fi; \
     rm -rf temp_context

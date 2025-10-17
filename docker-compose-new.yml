@@ -11,7 +11,8 @@ services:
     volumes:
       # Use production optimized Caddyfile
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./site/${APP_DIR:-si-imut}:/var/www/html:ro  # Read-only for security
+      # PRODUCTION: Serve static files from app container via reverse proxy (no bind mount)
+      # - ./site/${APP_DIR:-si-imut}:/var/www/html:ro  # DISABLED: app code in container
       - caddy_data:/data
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
@@ -52,12 +53,12 @@ services:
     working_dir: /var/www/html
     user: "1000:1000"  # Non-root for security
     volumes:
-      - ./site/${APP_DIR:-si-imut}:/var/www/html:cached  # Cached for performance
+      # PRODUCTION: No app code mount - code is baked into image for performance
+      # - ./site/${APP_DIR:-si-imut}:/var/www/html:cached  # DISABLED: slow in production
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
       - ./DockerNew/php/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-      # Separate vendor from bind mount for better performance
-      - vendor_data:/var/www/html/vendor
+      # Only mount persistent data that needs to survive container restarts
       - storage_data:/var/www/html/storage
       - bootstrap_cache:/var/www/html/bootstrap/cache
     env_file:
@@ -237,9 +238,7 @@ volumes:
   # redis_logs:
   #   driver: local
     
-  # PHP application data
-  vendor_data:
-    driver: local
+  # PHP application data (only persistent storage, no vendor)
   storage_data:
     driver: local
   bootstrap_cache:

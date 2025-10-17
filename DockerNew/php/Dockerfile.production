@@ -33,17 +33,28 @@ RUN apk add --no-cache \
   && docker-php-ext-install -j"$(nproc)" \
        intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd \
        bcmath exif pcntl sockets opcache \
-  # Advanced caching with igbinary
-  && pecl install igbinary \
-  && docker-php-ext-enable igbinary \
+  # Advanced caching with igbinary (make pecl installs tolerant to failures)
+  && ( \
+       pecl install igbinary || echo "[warning] igbinary install failed, skipping" \
+     ) \
+  && ( \
+       if ls /usr/local/lib/php/extensions/*/igbinary.so >/dev/null 2>&1; then docker-php-ext-enable igbinary || true; else echo "[info] igbinary not present, skipping enable"; fi \
+     ) \
   # Redis DISABLED - sehat, kenapa harus pakai obat
   # && pecl install redis \
   # && docker-php-ext-enable redis \
   # APCu for local caching (alternative to Redis)
-  && pecl install apcu \
-  && docker-php-ext-enable apcu \
-  # XDebug only for development
-  && if [ "$ENABLE_XDEBUG" = "true" ]; then pecl install xdebug && docker-php-ext-enable xdebug ; fi \
+  && ( \
+       pecl install apcu || echo "[warning] apcu install failed, skipping" \
+     ) \
+  && ( \
+       if ls /usr/local/lib/php/extensions/*/apcu.so >/dev/null 2>&1; then docker-php-ext-enable apcu || true; else echo "[info] apcu not present, skipping enable"; fi \
+     ) \
+  # XDebug only for development (tolerant)
+  && if [ "$ENABLE_XDEBUG" = "true" ]; then \
+       ( pecl install xdebug || echo "[warning] xdebug install failed, skipping" ); \
+       if ls /usr/local/lib/php/extensions/*/xdebug.so >/dev/null 2>&1; then docker-php-ext-enable xdebug || true; fi; \
+     fi \
   # Cleanup
   && apk del --no-network $PHPIZE_DEPS \
   && rm -rf /var/cache/apk/* /tmp/*
@@ -63,37 +74,50 @@ WORKDIR /var/www/html
 # =========================
 FROM base AS deps
 
-# Copy composer files for optimal Docker layer caching
-COPY composer.lock composer.json ./
-
+# Prefer composer files from site/${APP_DIR} to support monorepo layout
+ARG APP_DIR=si-imut
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache
 ENV COMPOSER_MEMORY_LIMIT=-1
 
+WORKDIR /var/www/html
+
+# Copy composer manifest using conditional approach since COPY doesn't support || true
+RUN mkdir -p ${APP_DIR}
+COPY . ./temp_context/
+RUN set -eux; \
+    if [ -f "temp_context/site/${APP_DIR}/composer.json" ]; then \
+        echo ">> Found composer.json in site/${APP_DIR}"; \
+        cp "temp_context/site/${APP_DIR}/composer.json" "${APP_DIR}/"; \
+        if [ -f "temp_context/site/${APP_DIR}/composer.lock" ]; then \
+            echo ">> Found composer.lock in site/${APP_DIR}"; \
+            cp "temp_context/site/${APP_DIR}/composer.lock" "${APP_DIR}/"; \
+        fi; \
+    else \
+        echo ">> No composer.json found in site/${APP_DIR} - creating empty structure"; \
+        touch "${APP_DIR}/composer.json"; \
+    fi; \
+    rm -rf temp_context
+
+WORKDIR /var/www/html/${APP_DIR}
+
+# Install composer dependencies if manifests exist
 RUN set -eux; \
     if [ -f composer.json ]; then \
-      echo ">> composer.json found"; \
+      echo ">> composer.json found in /var/www/html/${APP_DIR}"; \
       if [ -f composer.lock ]; then \
         echo ">> using composer.lock for reproducible builds"; \
       else \
         echo ">> composer.lock not found -> will be generated automatically"; \
       fi; \
-      # Production optimized composer install
       if [ "$APP_ENV" = "production" ]; then \
-        composer install \
-          --no-dev \
-          --prefer-dist \
-          --no-interaction \
-          --no-progress \
-          --no-scripts \
-          --optimize-autoloader \
-          --classmap-authoritative; \
+        composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --optimize-autoloader --classmap-authoritative; \
       else \
         composer install --prefer-dist --no-interaction --no-progress --no-scripts; \
       fi; \
     else \
-      echo '>> composer.json not found. Skipping deps stage.'; \
-    fi \
-  && rm -rf "$COMPOSER_CACHE_DIR" /tmp/*
+      echo ">> No composer.json in /var/www/html/${APP_DIR} - skipping deps stage"; \
+    fi; \
+    rm -rf "$COMPOSER_CACHE_DIR" /tmp/*;
 
 # Ensure vendor directory exists for next stage
 RUN mkdir -p /var/www/html/vendor
@@ -166,13 +190,24 @@ RUN set -eux; \
   sed -ri 's|^;?request_slowlog_timeout =.*|request_slowlog_timeout = 10s|' /usr/local/etc/php-fpm.d/www.conf
 
 # Copy optimized dependencies from deps stage
-COPY --from=deps /var/www/html/vendor ./vendor
-
-# Copy application source code
-COPY . .
+COPY --from=deps /var/www/html ./
 
 # Final composer optimizations and Laravel setup
 RUN set -eux; \
+    # Find Laravel app directory
+    if [ -f artisan ]; then \
+      echo ">> Laravel app found in root"; \
+      APP_PATH="."; \
+    elif [ -f site/*/artisan ]; then \
+      echo ">> Laravel app found in site subdirectory"; \
+      APP_PATH=$(find site -name "artisan" -type f | head -1 | xargs dirname); \
+    else \
+      echo ">> No Laravel app found - skipping Laravel optimizations"; \
+      exit 0; \
+    fi; \
+    \
+    cd "$APP_PATH"; \
+    \
     if [ -f composer.json ]; then \
       if [ "$APP_ENV" = "production" ]; then \
         composer install \
@@ -197,14 +232,29 @@ RUN set -eux; \
     fi
 
 # Set proper permissions for Laravel
-RUN chown -R www:www storage bootstrap/cache public/storage || true \
- && chmod -R ug+rwX storage bootstrap/cache || true \
- && chmod -R 755 public || true
+RUN set -eux; \
+    # Find Laravel app directory for permissions
+    if [ -f artisan ]; then \
+      APP_PATH="."; \
+    elif [ -f site/*/artisan ]; then \
+      APP_PATH=$(find site -name "artisan" -type f | head -1 | xargs dirname); \
+    else \
+      APP_PATH="."; \
+    fi; \
+    \
+    cd "$APP_PATH"; \
+    chown -R www:www storage bootstrap/cache public/storage || true; \
+    chmod -R ug+rwX storage bootstrap/cache || true; \
+    chmod -R 755 public || true
 
 # Setup supervisor directories and permissions
 RUN mkdir -p /var/log/supervisor /etc/supervisor/conf.d \
  && chown -R www:www /var/log/supervisor \
  && chmod -R 755 /var/log/supervisor
+
+# Production entrypoint (copy and set permissions as root before switching to www user)
+COPY DockerNew/php/entrypoint-production.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && chown www:www /usr/local/bin/entrypoint.sh
 
 # Switch to non-root user
 USER www
@@ -214,12 +264,6 @@ EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD supervisorctl status | grep -q "RUNNING" && \
         php -r "exit(extension_loaded('opcache') && extension_loaded('apcu') ? 0 : 1);"
-
-# Production entrypoint
-COPY DockerNew/php/entrypoint-production.sh /usr/local/bin/entrypoint.sh
-USER root
-RUN chmod +x /usr/local/bin/entrypoint.sh && chown www:www /usr/local/bin/entrypoint.sh
-USER www
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm", "-F"]

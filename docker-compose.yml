@@ -16,9 +16,9 @@ services:
   # PHP
   ####################################################################################################
   php:
-  <<: *app-base
-  ports:
-    - "${VITE_PORT}:5173"
+    <<: *app-base
+    ports:
+      - "${VITE_PORT}:5173"
 
   ####################################################################################################
   # Nginx
@@ -126,12 +126,12 @@ services:
   # Laravel Schedule Worker
   ####################################################################################################
   worker:
-  <<: *app-base
-  command: >
-    sh -c "
-      php artisan queue:work redis --sleep=3 --tries=3 &
-      php artisan schedule:work
-    "
+    <<: *app-base
+    command: >
+      sh -c "
+        php artisan queue:work redis --sleep=3 --tries=3 &
+        php artisan schedule:work
+      "
       
   # schedule:
   #   build:

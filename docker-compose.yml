@@ -1,21 +1,24 @@
 volumes:
   laravel_app:
 
+x-app-base: &app-base
+  image: juniyasyos/siimut-app:alpine-1.3.5
+  restart: unless-stopped
+  working_dir: /var/www
+  volumes:
+    - laravel_app:/var/www
+  depends_on:
+    - db
+    - redis
+    
 services:
   ####################################################################################################
   # PHP
   ####################################################################################################
   php:
-    image: juniyasyos/siimut-app:alpine-1.3.5
-    restart: unless-stopped
-    working_dir: /var/www
-    ports:
-      - "${VITE_PORT}:5173"
-    volumes:
-      - laravel_app:/var/www
-    depends_on:
-      - db
-      - redis
+  <<: *app-base
+  ports:
+    - "${VITE_PORT}:5173"
 
   ####################################################################################################
   # Nginx
@@ -123,17 +126,12 @@ services:
   # Laravel Schedule Worker
   ####################################################################################################
   worker:
-    extends:
-      service: php
-    ports: []
-    command: >
-      sh -c "
-        php artisan queue:work redis --sleep=3 --tries=3 &
-        php artisan schedule:work
-      "
-    depends_on:
-      - db
-      - redis
+  <<: *app-base
+  command: >
+    sh -c "
+      php artisan queue:work redis --sleep=3 --tries=3 &
+      php artisan schedule:work
+    "
       
   # schedule:
   #   build:

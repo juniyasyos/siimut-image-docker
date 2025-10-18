@@ -104,7 +104,8 @@ services:
       - db_data:/var/lib/mysql
       - db_logs:/var/log/mysql
       - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
-      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
+      # Comment out SQL init directory if empty to avoid mount issues
+      # - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
     env_file:
       - .env.production
     environment:
@@ -146,6 +147,8 @@ services:
       PMA_PORT: 3306
       PMA_ARBITRARY: 1
       PMA_ABSOLUTE_URI: http://localhost:${PMA_PORT:-8081}/
+      # Security
+      PMA_BLOWFISH_SECRET: siimut-production-secret-key-change-in-production-2024
       # Enhanced limits for production data
       UPLOAD_LIMIT: 1024M
       MEMORY_LIMIT: 1024M
@@ -155,8 +158,10 @@ services:
       MAX_INPUT_VARS: 10000
     volumes:
       - phpmyadmin_sessions:/sessions
-      - ./DockerNew/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php:ro
-    user: "33:33"
+      # Removed config file mount to avoid permission issues
+      # - ./DockerNew/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php:ro
+    # Removed user specification to avoid permission issues with mounted volumes
+    # user: "33:33"
     depends_on:
       db:
         condition: service_healthy

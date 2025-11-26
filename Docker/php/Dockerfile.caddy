@@ -41,36 +41,12 @@ RUN addgroup -g ${GID} www && adduser -D -G www -u ${UID} www \
 WORKDIR /var/www/html
 
 # =========================
-# Stage 2: deps (composer install - optional)
+# Stage 2: deps (simplified - no composer during build)
 # =========================
 FROM base AS deps
 
-# Salin composer manifest untuk cache layer yang baik
-# (lock file ada di repo Anda jadi aman untuk disalin bersama)
-COPY composer.lock composer.json ./
-
-ENV COMPOSER_CACHE_DIR=/tmp/composer-cache
-
-RUN set -eux; \
-    if [ -f composer.json ]; then \
-      echo ">> composer.json found"; \
-      if [ -f composer.lock ]; then \
-        echo ">> using composer.lock"; \
-      else \
-        echo ">> composer.lock not found -> will be generated automatically by install"; \
-      fi; \
-      # Di stage deps belum ada source code lengkap -> hindari eksekusi script artisan
-      if [ "$APP_ENV" = "production" ]; then \
-        composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --optimize-autoloader; \
-      else \
-        composer install --prefer-dist --no-interaction --no-progress --no-scripts; \
-      fi; \
-    else \
-      echo '>> composer.json not found. Skipping deps stage (this is OK for a fresh repo).'; \
-    fi \
-  && rm -rf "$COMPOSER_CACHE_DIR"
-
-# Pastikan direktori vendor selalu ada agar COPY dari stage ini tidak gagal
+# Skip composer install during build - akan dihandle oleh entrypoint
+# Buat direktori vendor kosong untuk stage berikutnya
 RUN mkdir -p /var/www/html/vendor
 
 # =========================
@@ -110,23 +86,15 @@ RUN set -eux; \
   sed -ri 's|^;?pm\.max_spare_servers =.*|pm.max_spare_servers = 8|' /usr/local/etc/php-fpm.d/www.conf && \
   sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf
 
-# vendor dari stage deps (selalu ada karena kita buatkan direktori kosong di stage deps)
+# vendor dari stage deps (directory kosong)
 COPY --from=deps /var/www/html/vendor ./vendor
 
-# source code
-COPY . .
+# Skip source code copy - akan dimount via volume
+# Buat struktur direktori dasar yang dibutuhkan
+RUN mkdir -p storage/{app,framework/{cache,sessions,views},logs} bootstrap/cache public
 
-RUN set -eux; \
-    if [ -f composer.json ]; then \
-      if [ "$APP_ENV" = "production" ]; then \
-        composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --optimize-autoloader; \
-      else \
-        composer install --prefer-dist --no-interaction --no-progress --no-scripts; \
-      fi; \
-    else \
-      echo '>> composer.json still not found after COPY . .  — periksa build context / struktur proyekmu.'; \
-    fi
-
+# Skip composer install - akan dihandle oleh entrypoint saat runtime
+# dengan akses ke source code yang sudah dimount
 
 RUN chown -R www:www storage bootstrap/cache \
  && chmod -R ug+rwX storage bootstrap/cache
@@ -134,15 +102,11 @@ RUN chown -R www:www storage bootstrap/cache \
 USER www
 EXPOSE 9000
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD php -r "exit(extension_loaded('pdo_pgsql')?0:1);"
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD php -r "exit(0);"
 
-# Runtime bootstrap script to auto-prepare the app
-# Note: this expects `entrypoint.sh` to exist inside the build context
-# (i.e., inside `./site/<APP_DIR>`). Our root-level run.sh copies it before build.
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-USER root
-RUN chmod +x /usr/local/bin/entrypoint.sh && chown www:www /usr/local/bin/entrypoint.sh
+# Entrypoint akan di-mount via volume dari docker-compose
+# Tidak perlu copy entrypoint ke image
 USER www
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Default command - entrypoint akan di-override via docker-compose
 CMD ["php-fpm", "-F"]

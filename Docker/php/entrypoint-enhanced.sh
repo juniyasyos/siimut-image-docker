@@ -32,10 +32,10 @@ success() { echo -e "[$(date +'%H:%M:%S')] ${GREEN}[success]${NC} $*"; }
 
 # Helper: artisan wrapper aman
 artisan() {
-  if [[ -f "$SIIMUT_DIR/artisan" ]]; then
-    cd "$SIIMUT_DIR" && php artisan "$@"
+  if [[ -f "artisan" ]]; then
+    php artisan "$@"
   else
-    warn "Lewati artisan $* (file artisan tidak ditemukan di $SIIMUT_DIR)"
+    warn "Lewati artisan $* (file artisan tidak ditemukan di $(pwd))"
     return 0
   fi
 }
@@ -116,16 +116,24 @@ log "🚀 Starting SIIMUT Container Bootstrap"
 log "Environment: APP_ENV=$APP_ENV"
 
 # Ensure we're in the right directory
-if [[ -d "$SIIMUT_DIR" ]]; then
+if [[ -d "$APP_DIR" ]] && [[ -f "$APP_DIR/artisan" ]]; then
+  cd "$APP_DIR"
+  log "Using Laravel directory: $APP_DIR"
+elif [[ -d "$SIIMUT_DIR" ]] && [[ -f "$SIIMUT_DIR/artisan" ]]; then
   cd "$SIIMUT_DIR"
   APP_DIR="$SIIMUT_DIR"
   log "Using SIIMUT Laravel directory: $SIIMUT_DIR"
-elif [[ -d "$APP_DIR" ]] && [[ -f "$APP_DIR/artisan" ]]; then
-  cd "$APP_DIR"
-  log "Using Laravel directory: $APP_DIR"
 else
-  error "Laravel application tidak ditemukan di $APP_DIR atau $SIIMUT_DIR"
-  exit 1
+  error "Laravel application tidak ditemukan di $APP_DIR"
+  # Coba cari di subdirectory
+  if find /var/www -name "artisan" -type f 2>/dev/null | head -1 | read artisan_path; then
+    APP_DIR=$(dirname "$artisan_path")
+    cd "$APP_DIR"
+    log "Found Laravel application at: $APP_DIR"
+  else
+    error "Tidak dapat menemukan Laravel application"
+    exit 1
+  fi
 fi
 
 # Clear Laravel bootstrap cache (safe even if vendor doesn't exist)

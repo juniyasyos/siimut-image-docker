@@ -1,71 +1,46 @@
 # =========================
-# Production-Optimized PHP-FPM Dockerfile (No Redis)
+# Production-Only PHP-FPM Dockerfile (No Redis)
 # =========================
 FROM php:8.4-fpm-alpine AS base
 
-# Build arguments with production defaults
+# Build args
 ARG UID=1000
 ARG GID=1000
-ARG APP_ENV=production          # production|local
-ARG ENABLE_XDEBUG=false         # true|false
 ARG TZ=Asia/Jakarta
 
-# Enhanced system packages for production (Redis tools removed)
+# Sistem & build deps (prod-friendly)
 RUN apk add --no-cache \
-      tzdata bash git shadow ca-certificates unzip \
+      tzdata bash shadow ca-certificates unzip \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
-      linux-headers \ 
+      linux-headers \
+      curl openssl \
       $PHPIZE_DEPS \
-      # Production monitoring tools
-      htop procps curl \
-      # Image optimization
-      optipng jpegoptim \
-      # Security tools
-      openssl \
-      # Supervisor for process management
-      supervisor \
-  && cp /usr/share/zoneinfo/${TZ} /etc/localtime && echo "${TZ}" > /etc/timezone \
-  # PHP extensions configuration
+      vim \
+  && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
+  && echo "${TZ}" > /etc/timezone \
+  # PHP extensions
   && docker-php-ext-configure intl \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install -j"$(nproc)" \
        intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd \
        bcmath exif pcntl sockets opcache \
-  # Advanced caching with igbinary (make pecl installs tolerant to failures)
-  && ( \
-       pecl install igbinary || echo "[warning] igbinary install failed, skipping" \
-     ) \
-  && ( \
-       if ls /usr/local/lib/php/extensions/*/igbinary.so >/dev/null 2>&1; then docker-php-ext-enable igbinary || true; else echo "[info] igbinary not present, skipping enable"; fi \
-     ) \
-  # Redis DISABLED - sehat, kenapa harus pakai obat
-  # && pecl install redis \
-  # && docker-php-ext-enable redis \
-  # APCu for local caching (alternative to Redis)
-  && ( \
-       pecl install apcu || echo "[warning] apcu install failed, skipping" \
-     ) \
-  && ( \
-       if ls /usr/local/lib/php/extensions/*/apcu.so >/dev/null 2>&1; then docker-php-ext-enable apcu || true; else echo "[info] apcu not present, skipping enable"; fi \
-     ) \
-  # XDebug only for development (tolerant)
-  && if [ "$ENABLE_XDEBUG" = "true" ]; then \
-       ( pecl install xdebug || echo "[warning] xdebug install failed, skipping" ); \
-       if ls /usr/local/lib/php/extensions/*/xdebug.so >/dev/null 2>&1; then docker-php-ext-enable xdebug || true; fi; \
-     fi \
-  # Cleanup
-  && apk del --no-network $PHPIZE_DEPS \
+  # APCu + igbinary (no Redis)
+  && pecl install apcu igbinary \
+  && docker-php-ext-enable apcu igbinary \
+  # Bersihkan build deps
+  && apk del --no-network $PHPIZE_DEPS linux-headers \
   && rm -rf /var/cache/apk/* /tmp/*
 
-# Latest Composer with optimizations
+# Composer dari image resmi
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Create non-root user with proper permissions
-RUN addgroup -g ${GID} www && adduser -D -G www -u ${UID} www \
-  && usermod -aG www-data www || true \
-  && usermod -u ${UID} www-data || true && groupmod -g ${GID} www-data || true
+# User non-root untuk runtime
+RUN addgroup -g "${GID}" www \
+  && adduser -D -G www -u "${UID}" www \
+  && sed -ri 's/^user = .*/user = www/' /usr/local/etc/php-fpm.d/www.conf \
+  && sed -ri 's/^group = .*/group = www/' /usr/local/etc/php-fpm.d/www.conf
 
 WORKDIR /var/www/html
 
@@ -74,64 +49,56 @@ WORKDIR /var/www/html
 # =========================
 FROM base AS deps
 
-# Prefer composer files from site/${APP_DIR} to support monorepo layout
+# Monorepo support: app ada di site/${APP_DIR}
 ARG APP_DIR=si-imut
-ENV COMPOSER_CACHE_DIR=/tmp/composer-cache
-ENV COMPOSER_MEMORY_LIMIT=-1
+
+ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
+    COMPOSER_MEMORY_LIMIT=-1
 
 WORKDIR /var/www/html
 
-# Copy ALL source code into image (production: no bind mount)
-COPY . ./temp_context/
+# Copy seluruh source dari context
+COPY . ./temp_context
+
 RUN set -eux; \
+    # Kalau ada struktur site/${APP_DIR}, pakai itu. Kalau tidak, pakai root.
     if [ -d "temp_context/site/${APP_DIR}" ]; then \
-        echo ">> Copying entire Laravel app from site/${APP_DIR}"; \
-        cp -r "temp_context/site/${APP_DIR}/." "${APP_DIR}/"; \
+      echo ">> Using app from site/${APP_DIR}"; \
+      cp -r "temp_context/site/${APP_DIR}/." "./"; \
     else \
-        echo ">> No app found in site/${APP_DIR} - creating empty structure"; \
-        mkdir -p "${APP_DIR}"; \
-        touch "${APP_DIR}/composer.json"; \
+      echo ">> Using app from repository root"; \
+      cp -r "temp_context/." "./"; \
     fi; \
-    rm -rf temp_context
-
-WORKDIR /var/www/html/${APP_DIR}
-
-# Install composer dependencies if manifests exist
-RUN set -eux; \
+    rm -rf temp_context; \
+    \
     if [ -f composer.json ]; then \
-      echo ">> composer.json found in /var/www/html/${APP_DIR}"; \
-      if [ -f composer.lock ]; then \
-        echo ">> using composer.lock for reproducible builds"; \
-      else \
-        echo ">> composer.lock not found -> will be generated automatically"; \
-      fi; \
-      if [ "$APP_ENV" = "production" ]; then \
-        composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --optimize-autoloader --classmap-authoritative; \
-      else \
-        composer install --prefer-dist --no-interaction --no-progress --no-scripts; \
-      fi; \
+      echo ">> Installing composer dependencies (production)..."; \
+      composer install \
+        --no-dev \
+        --prefer-dist \
+        --no-interaction \
+        --no-progress \
+        --optimize-autoloader \
+        --classmap-authoritative; \
     else \
-      echo ">> No composer.json in /var/www/html/${APP_DIR} - skipping deps stage"; \
+      echo ">> composer.json not found, skipping composer install"; \
     fi; \
-    rm -rf "$COMPOSER_CACHE_DIR" /tmp/*;
-
-# Ensure vendor directory exists for next stage
-RUN mkdir -p /var/www/html/vendor
+    rm -rf "$COMPOSER_CACHE_DIR" /tmp/*
 
 # =========================
-# Stage 3: Production Application (No Redis)
+# Stage 3: Runtime Application (Production Only)
 # =========================
 FROM base AS app
 
-ENV APP_ENV=${APP_ENV}
-# Production: disable timestamp validation for better performance
-ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
-# Security: limit memory
-ENV PHP_MEMORY_LIMIT=512M
+ARG TZ=Asia/Jakarta
 
-# Production-optimized PHP configuration (No Redis)
+ENV APP_ENV=production \
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
+    PHP_MEMORY_LIMIT=512M
+
+# PHP & FPM tuning (production)
 RUN set -eux; \
-  # Laravel-specific configurations
+  # Laravel / PHP settings
   { \
     echo "memory_limit=${PHP_MEMORY_LIMIT}"; \
     echo "upload_max_filesize=64M"; \
@@ -145,7 +112,7 @@ RUN set -eux; \
     echo "log_errors=On"; \
     echo "error_log=/var/log/php_errors.log"; \
   } > /usr/local/etc/php/conf.d/laravel.ini; \
-  # Enhanced OPcache for production
+  # OPcache
   { \
     echo "opcache.enable=1"; \
     echo "opcache.enable_cli=0"; \
@@ -156,13 +123,12 @@ RUN set -eux; \
     echo "opcache.max_accelerated_files=100000"; \
     echo "opcache.revalidate_freq=0"; \
     echo "opcache.validate_timestamps=${PHP_OPCACHE_VALIDATE_TIMESTAMPS}"; \
-    echo "opcache.save_comments=0"; \
+    echo "opcache.save_comments=1"; \
     echo "opcache.enable_file_override=1"; \
     echo "opcache.max_wasted_percentage=10"; \
     echo "opcache.use_cwd=1"; \
-    echo "opcache.fast_shutdown=1"; \
   } > /usr/local/etc/php/conf.d/opcache.ini; \
-  # APCu for user data caching (alternative to Redis)
+  # APCu
   { \
     echo "apc.enabled=1"; \
     echo "apc.shm_size=128M"; \
@@ -171,95 +137,38 @@ RUN set -eux; \
     echo "apc.user_ttl=3600"; \
     echo "apc.gc_ttl=3600"; \
   } > /usr/local/etc/php/conf.d/apcu.ini; \
-  # Production PHP-FPM tuning
-  sed -ri 's|^;?pm =.*|pm = dynamic|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?pm\.max_children =.*|pm.max_children = 50|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?pm\.start_servers =.*|pm.start_servers = 8|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?pm\.min_spare_servers =.*|pm.min_spare_servers = 4|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?pm\.max_spare_servers =.*|pm.max_spare_servers = 16|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests = 1000|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?request_terminate_timeout =.*|request_terminate_timeout = 120s|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf && \
-  # Enhanced logging
-  sed -ri 's|^;?access\.log =.*|access.log = /proc/self/fd/2|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?slowlog =.*|slowlog = /var/log/php-slow.log|' /usr/local/etc/php-fpm.d/www.conf && \
-  sed -ri 's|^;?request_slowlog_timeout =.*|request_slowlog_timeout = 10s|' /usr/local/etc/php-fpm.d/www.conf
+  # FPM pool tuning
+  sed -ri 's|^;?pm =.*|pm = dynamic|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.max_children =.*|pm.max_children = 50|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.start_servers =.*|pm.start_servers = 8|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.min_spare_servers =.*|pm.min_spare_servers = 4|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.max_spare_servers =.*|pm.max_spare_servers = 16|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests = 1000|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?request_terminate_timeout =.*|request_terminate_timeout = 120s|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?access\.log =.*|access.log = /proc/self/fd/2|' /usr/local/etc/php-fpm.d/www.conf
 
-# Copy optimized dependencies from deps stage
-COPY --from=deps /var/www/html ./
+# Copy app + vendor dari stage deps
+COPY --from=deps /var/www/html /var/www/html
 
-# Final composer optimizations and Laravel setup
+# Permission minimal untuk runtime
 RUN set -eux; \
-    # Find Laravel app directory
-    if [ -f artisan ]; then \
-      echo ">> Laravel app found in root"; \
-      APP_PATH="."; \
-    elif [ -f site/*/artisan ]; then \
-      echo ">> Laravel app found in site subdirectory"; \
-      APP_PATH=$(find site -name "artisan" -type f | head -1 | xargs dirname); \
-    else \
-      echo ">> No Laravel app found - skipping Laravel optimizations"; \
-      exit 0; \
+    if [ -d storage ]; then \
+      chown -R www:www storage bootstrap/cache || true; \
+      chmod -R ug+rwX storage bootstrap/cache || true; \
     fi; \
-    \
-    cd "$APP_PATH"; \
-    \
-    if [ -f composer.json ]; then \
-      if [ "$APP_ENV" = "production" ]; then \
-        composer install \
-          --no-dev \
-          --prefer-dist \
-          --no-interaction \
-          --no-progress \
-          --no-scripts \
-          --optimize-autoloader \
-          --classmap-authoritative; \
-        # Laravel production optimizations
-        if [ -f artisan ]; then \
-          php artisan config:cache || true; \
-          php artisan route:cache || true; \
-          php artisan view:cache || true; \
-        fi; \
-      else \
-        composer install --prefer-dist --no-interaction --no-progress --no-scripts; \
-      fi; \
-    else \
-      echo '>> composer.json not found after source copy.'; \
+    if [ -d public ]; then \
+      chmod -R 755 public || true; \
     fi
 
-# Set proper permissions for Laravel
-RUN set -eux; \
-    # Find Laravel app directory for permissions
-    if [ -f artisan ]; then \
-      APP_PATH="."; \
-    elif [ -f site/*/artisan ]; then \
-      APP_PATH=$(find site -name "artisan" -type f | head -1 | xargs dirname); \
-    else \
-      APP_PATH="."; \
-    fi; \
-    \
-    cd "$APP_PATH"; \
-    chown -R www:www storage bootstrap/cache public/storage || true; \
-    chmod -R ug+rwX storage bootstrap/cache || true; \
-    chmod -R 755 public || true
-
-# Setup supervisor directories and permissions
-RUN mkdir -p /var/log/supervisor /etc/supervisor/conf.d \
- && chown -R www:www /var/log/supervisor \
- && chmod -R 755 /var/log/supervisor
-
-# Production entrypoint (copy and set permissions as root before switching to www user)
+# Entry point production (simple, tanpa composer/migrate otomatis)
 COPY DockerNew/php/entrypoint-production.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh && chown www:www /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Switch to non-root user
-USER www
 EXPOSE 9000
 
-# Enhanced health check (No Redis, includes Supervisor)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD supervisorctl status | grep -q "RUNNING" && \
-        php -r "exit(extension_loaded('opcache') && extension_loaded('apcu') ? 0 : 1);"
+  CMD php -r "exit(extension_loaded('opcache') && extension_loaded('apcu') ? 0 : 1);"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm", "-F"]

@@ -51,14 +51,11 @@ services:
     image: ${STACK_NAME:-siimut}-app:latest  # Tag for potential reuse
     container_name: ${STACK_NAME:-siimut}-app
     working_dir: /var/www/html
-    user: "1000:1000"  # Non-root for security
+    # user: "1000:1000"  # Non-root for security
     volumes:
       # PRODUCTION: No app code mount - code is baked into image for performance
-      # - ./site/${APP_DIR:-si-imut}:/var/www/html:cached  # DISABLED: slow in production
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-      # Only mount persistent data that needs to survive container restarts
       - storage_data:/var/www/html/storage
       - bootstrap_cache:/var/www/html/bootstrap/cache
     env_file:
@@ -69,7 +66,6 @@ services:
       APP_ENV: ${APP_ENV:-production}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
-    command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
     depends_on:
       db:
         condition: service_healthy
@@ -84,7 +80,7 @@ services:
           memory: 768M
           cpus: '0.75'
     healthcheck:
-      test: ["CMD", "supervisorctl", "status", "||", "exit", "1"]
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       retries: 3

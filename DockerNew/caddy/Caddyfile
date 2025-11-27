@@ -46,7 +46,7 @@
 	reverse_proxy app:9000 {
 		transport fastcgi {
 			split .php
-			env SCRIPT_FILENAME /var/www/html/public{path}
+			env SCRIPT_FILENAME /var/www/html/public/index.php
 			env PATH_INFO {path}
 			env QUERY_STRING {query}
 			env REQUEST_METHOD {method}

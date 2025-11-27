@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "🚀 Starting SIIMUT (env: ${APP_ENV:-production})"
+echo "🚀 Starting Apps (env: ${APP_ENV:-production})"
 
 APP_ENV="${APP_ENV:-production}"
 
@@ -70,6 +70,14 @@ php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed (co
 php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed (continuing...)"
 
 echo "📊 Container ready at: $(date)"
+
+cd /var/www/html
+
+# Fix permissions for storage & cache
+if [ -d storage ]; then
+  chown -R www:www storage bootstrap/cache || true
+  chmod -R ug+rwX storage bootstrap/cache || true
+fi
 
 # Kalau tidak ada command yang dikasih dari Dockerfile/compose, pakai php-fpm -F
 if [ $# -eq 0 ]; then

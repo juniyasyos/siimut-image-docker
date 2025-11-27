@@ -1,3 +1,34 @@
+####################################################################################################
+# Base APP PHP Application - Unified with Supervisor (Hospital Single-App)
+####################################################################################################
+x-app-base: &app-base
+  working_dir: /var/www/html
+  env_file:
+    - .env.production # bisa diganti per-app nanti
+  environment:
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "${PHP_OPCACHE_VALIDATE_TIMESTAMPS:-0}"
+    COMPOSER_CACHE_DIR: /tmp/composer
+    APP_ENV: ${APP_ENV:-production}
+    RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 1.5G
+        cpus: "1.5"
+      reservations:
+        memory: 768M
+        cpus: "0.75"
+  healthcheck:
+    test: ["CMD-SHELL", "php -v >/dev/null 2>&1"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+
 services:
   ####################################################################################################
   # Caddy Web Server - Production Optimized
@@ -7,17 +38,15 @@ services:
     container_name: ${STACK_NAME:-siimut}-web
     ports:
       - "${WEB_HTTP_PORT:-8080}:8080"
-      - "443:443"   # TLS support for production
+      - "443:443" # TLS support for production
     volumes:
       # Use production optimized Caddyfile
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      # PRODUCTION: Serve static files from app container via reverse proxy (no bind mount)
-      # - ./site/${APP_DIR:-si-imut}:/var/www/html:ro  # DISABLED: app code in container
       - caddy_data:/data
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     depends_on:
-      app:
+      app-siimut:
         condition: service_healthy
     restart: unless-stopped
     # Production resource limits
@@ -25,21 +54,40 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: "0.5"
         reservations:
           memory: 128M
-          cpus: '0.25'
+          cpus: "0.25"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/", "||", "exit", "1"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/",
+          "||",
+          "exit",
+          "1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
 
   ####################################################################################################
-  # PHP Application + Worker + Scheduler - Unified with Supervisor (Hospital Single-App)
   ####################################################################################################
-  app:
+  # Section : Apps - Production Application
+  ####################################################################################################
+  ####################################################################################################
+
+  ####################################################################################################
+  # Apps SIIMUT
+  ####################################################################################################
+  app-siimut:
+    <<: *app-base
+    image: siimut-app:latest
     build:
       context: .
       dockerfile: DockerNew/php/Dockerfile.production
@@ -48,43 +96,106 @@ services:
         ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-    image: ${STACK_NAME:-siimut}-app:latest  # Tag for potential reuse
-    container_name: ${STACK_NAME:-siimut}-app
-    working_dir: /var/www/html
-    # user: "1000:1000"  # Non-root for security
+        APP_DIR: siimut           
+        APP_NAME: "SIIMUT"
+    container_name: siimut-app
+    env_file:
+      - ./env/env.siimut               # ENV khusus siimut (kalau mau dipisah)
     volumes:
-      # PRODUCTION: No app code mount - code is baked into image for performance
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-      - storage_data:/var/www/html/storage
-      - bootstrap_cache:/var/www/html/bootstrap/cache
-    env_file:
-      - .env.production
-    environment:
-      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "${PHP_OPCACHE_VALIDATE_TIMESTAMPS:-0}"
-      COMPOSER_CACHE_DIR: /tmp/composer
-      APP_ENV: ${APP_ENV:-production}
-      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
+      - siimut_storage:/var/www/html/storage
+      - siimut_bootstrap_cache:/var/www/html/bootstrap/cache
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    command: ["php-fpm", "-F"]
+
+  queue-siimut:
+    <<: *app-base
+    image: siimut-app:latest      # pakai image yang sama dengan app-siimut
+    container_name: siimut-queue
+    env_file:
+      - .env.siimut
+    volumes:
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+      - siimut_storage:/var/www/html/storage
+      - siimut_bootstrap_cache:/var/www/html/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan queue:work --sleep=3 --tries=3
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
-    # Production resource limits (increased for unified container)
     deploy:
       resources:
         limits:
-          memory: 1.5G  # Increased for app + worker + scheduler
-          cpus: '1.5'
+          memory: 512M
+          cpus: "0.75"
         reservations:
-          memory: 768M
-          cpus: '0.75'
-    healthcheck:
-      test: ["CMD-SHELL", "php -v >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+          memory: 256M
+          cpus: "0.25"
+
+  scheduler-siimut:
+    <<: *app-base
+    image: siimut-app:latest
+    container_name: siimut-scheduler
+    env_file:
+      - .env.siimut
+    volumes:
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+      - siimut_storage:/var/www/html/storage
+      - siimut_bootstrap_cache:/var/www/html/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan schedule:work
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
+
+  ####################################################################################################
+  # Apps IAM
+  ####################################################################################################
+  app-iam-server:
+    <<: *app-base
+    image: iam-app:latest
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.production
+      args:
+        APP_ENV: ${APP_ENV:-production}
+        ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        APP_DIR: iam-server               # folder project IAM (site/iam)
+        APP_NAME: "IAM Application"
+    container_name: iam-server-app
+    env_file:
+      - ./env/.env.iam
+    volumes:
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+      - iam_storage:/var/www/html/storage
+      - iam_bootstrap_cache:/var/www/html/bootstrap/cache
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    command: ["php-fpm", "-F"]
+
+  ####################################################################################################
+  ####################################################################################################
+  # End Section: Apps - Production Application
+  ####################################################################################################
+  ####################################################################################################
 
   ####################################################################################################
   # DATABASE (MariaDB) - Production Optimized
@@ -116,10 +227,10 @@ services:
       resources:
         limits:
           memory: 512M
-          cpus: '1.0'
+          cpus: "1.0"
         reservations:
           memory: 256M
-          cpus: '0.5'
+          cpus: "0.5"
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 30s
@@ -134,10 +245,10 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     container_name: ${STACK_NAME:-siimut}-phpmyadmin
     restart: unless-stopped
-    profiles:
-      - dev  # Only start with --profile dev
+    # profiles:
+    #   - dev # Only start with --profile dev
     ports:
-      - "${PMA_PORT:-8081}:80"
+      - "9000:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
@@ -166,10 +277,10 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: "0.5"
         reservations:
           memory: 128M
-          cpus: '0.25'
+          cpus: "0.25"
 
   ####################################################################################################
   # Redis - DISABLED (Command untuk sehat, kenapa harus pakai obat)
@@ -180,10 +291,10 @@ services:
   #   restart: unless-stopped
   #   command: |
   #     sh -c "
-  #       redis-server 
-  #       --appendonly yes 
-  #       --appendfsync everysec 
-  #       --maxmemory 256m 
+  #       redis-server
+  #       --appendonly yes
+  #       --appendfsync everysec
+  #       --maxmemory 256m
   #       --maxmemory-policy allkeys-lru
   #       --tcp-keepalive 60
   #       --timeout 300
@@ -226,25 +337,25 @@ volumes:
     driver: local
   caddy_logs:
     driver: local
-    
+
   # Database data with backup considerations
   db_data:
     driver: local
   db_logs:
     driver: local
-    
+
   # Redis data - DISABLED (sehat, kenapa harus pakai obat)
   # redis_data:
   #   driver: local
   # redis_logs:
   #   driver: local
-    
+
   # PHP application data (only persistent storage, no vendor)
   storage_data:
     driver: local
   bootstrap_cache:
     driver: local
-    
+
   # phpMyAdmin sessions
   phpmyadmin_sessions:
     driver: local
@@ -258,4 +369,3 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
-

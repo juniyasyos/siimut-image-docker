@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 # Default configuration
 SIIMUT_REPO="https://github.com/juniyasyos/si-imut.git"
 SIIMUT_BRANCH="feat-imutData"
-COMPOSE_FILE="docker-compose-new.yml"
+COMPOSE_FILE="docker-compose-multi-apps.yml"
 REPO_NAME="si-imut"
 
 echo -e "${GREEN}🚀 SIIMUT Docker Setup${NC}"

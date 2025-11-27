@@ -1,0 +1,277 @@
+####################################################################################################
+# Base APP PHP Application - Unified with Supervisor (Hospital Single-App)
+####################################################################################################
+x-app-base: &app-base
+  build:
+    context: .
+    dockerfile: ../DockerNew/php/Dockerfile.production
+    args:
+      APP_ENV: ${APP_ENV:-production}
+      ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+      APP_DIR: ${APP_DIR:-si-imut}
+  image: ${STACK_NAME:-siimut}-app:latest
+  working_dir: /var/www/html
+  env_file:
+    - ./env/env.production
+  environment:
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "${PHP_OPCACHE_VALIDATE_TIMESTAMPS:-0}"
+    COMPOSER_CACHE_DIR: /tmp/composer
+    APP_ENV: ${APP_ENV:-production}
+    RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
+  volumes:
+    - ../DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+    - ../DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+    - storage_data:/var/www/html/storage
+    - bootstrap_cache:/var/www/html/bootstrap/cache
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 1.5G
+        cpus: "1.5"
+      reservations:
+        memory: 768M
+        cpus: "0.75"
+  healthcheck:
+    test: ["CMD-SHELL", "php -v >/dev/null 2>&1"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+
+services:
+  ####################################################################################################
+  # Caddy Web Server - Production Optimized
+  ####################################################################################################
+  web:
+    image: caddy:2-alpine
+    container_name: ${STACK_NAME:-siimut}-web
+    ports:
+      - "${WEB_HTTP_PORT:-8080}:8080"
+      - "443:443" # TLS support for production
+    volumes:
+      # Use production optimized Caddyfile
+      - ../DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    restart: unless-stopped
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/",
+          "||",
+          "exit",
+          "1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  ####################################################################################################
+  ####################################################################################################
+  # Section : Apps - Production Application 
+  ####################################################################################################
+  ####################################################################################################
+  
+  
+  
+  ####################################################################################################
+  ####################################################################################################
+  # End Section: Apps - Production Application 
+  ####################################################################################################
+  ####################################################################################################
+  
+  
+  ####################################################################################################
+  # DATABASE (MariaDB) - Production Optimized
+  ####################################################################################################
+  db:
+    image: mariadb:10.11
+    container_name: ${STACK_NAME:-siimut}-db
+    restart: unless-stopped
+    # Security: Remove external port exposure for production
+    # ports:
+    #   - "${DB_PORT:-3306}:3306"  # Comment out for production security
+    volumes:
+      - db_data:/var/lib/mysql
+      - db_logs:/var/log/mysql
+      - ../DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      # Comment out SQL init directory if empty to avoid mount issues
+      # - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
+    env_file:
+      - ./env/.env.production
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # Production security
+      MYSQL_RANDOM_ROOT_PASSWORD: ${MYSQL_RANDOM_ROOT_PASSWORD:-no}
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  ####################################################################################################
+  # phpMyAdmin - Development/Staging Tool (Keep as requested)
+  ####################################################################################################
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: ${STACK_NAME:-siimut}-phpmyadmin
+    restart: unless-stopped
+    # profiles:
+    #   - dev # Only start with --profile dev
+    ports:
+      - "9000:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+      PMA_ABSOLUTE_URI: http://localhost:${PMA_PORT:-8081}/
+      # Security
+      PMA_BLOWFISH_SECRET: siimut-production-secret-key-change-in-production-2024
+      # Enhanced limits for production data
+      UPLOAD_LIMIT: 1024M
+      MEMORY_LIMIT: 1024M
+      POST_MAX_SIZE: 1024M
+      MAX_EXECUTION_TIME: 600
+      MAX_INPUT_TIME: 600
+      MAX_INPUT_VARS: 10000
+    volumes:
+      - phpmyadmin_sessions:/sessions
+      # Removed config file mount to avoid permission issues
+      # - ../DockerNew/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php:ro
+    # Removed user specification to avoid permission issues with mounted volumes
+    # user: "33:33"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Resource limits for phpMyAdmin
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
+  ####################################################################################################
+  # Redis - DISABLED (Command untuk sehat, kenapa harus pakai obat)
+  ####################################################################################################
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: ${STACK_NAME:-siimut}-redis
+  #   restart: unless-stopped
+  #   command: |
+  #     sh -c "
+  #       redis-server
+  #       --appendonly yes
+  #       --appendfsync everysec
+  #       --maxmemory 256m
+  #       --maxmemory-policy allkeys-lru
+  #       --tcp-keepalive 60
+  #       --timeout 300
+  #     "
+  #   volumes:
+  #     - redis_data:/data
+  #     - redis_logs:/var/log/redis
+  #   # Security: Remove external port exposure for production
+  #   # ports:
+  #   #   - "${REDIS_PORT:-6379}:6379"  # Comment out for production
+  #   # Production resource limits
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 384M
+  #         cpus: '0.5'
+  #       reservations:
+  #         memory: 256M
+  #         cpus: '0.25'
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  ####################################################################################################
+  # Worker Service - REMOVED (Merged into app via Supervisor)
+  ####################################################################################################
+  # worker service has been merged into app container for simplicity
+  # All background jobs and scheduling now handled by supervisord in app container
+
+####################################################################################################
+# Named Volumes - Production Optimized (No Redis)
+####################################################################################################
+volumes:
+  # Web server data
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local
+
+  # Database data with backup considerations
+  db_data:
+    driver: local
+  db_logs:
+    driver: local
+
+  # Redis data - DISABLED (sehat, kenapa harus pakai obat)
+  # redis_data:
+  #   driver: local
+  # redis_logs:
+  #   driver: local
+
+  # PHP application data (only persistent storage, no vendor)
+  storage_data:
+    driver: local
+  bootstrap_cache:
+    driver: local
+
+  # phpMyAdmin sessions
+  phpmyadmin_sessions:
+    driver: local
+
+####################################################################################################
+# Networks - Production Security
+####################################################################################################
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

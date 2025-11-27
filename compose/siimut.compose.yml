@@ -1,0 +1,51 @@
+include:
+  - ./compose.base.yml
+
+siimut-app:
+  <<: *app-base
+  image: siimut-app:latest
+  build:
+    context: .
+    dockerfile: ../DockerNew/php/Dockerfile.production
+    args:
+      APP_DIR: siimut
+      APP_NAME: "SI-IMUT Application"
+  env_file: ./env/.env.siimut
+
+  siimut-queue:
+    <<: *app-base
+    image: siimut-app:latest
+    command: php artisan queue:work
+    env_file:
+      - ./env/.env.siimut
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+
+  siimut-scheduler:
+    <<: *app-base
+    image: siimut-app:latest
+    command: php artisan queue:work
+    env_file:
+      - ./env/.env.siimut
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+        reservations:
+          memory: 256M
+          cpus: "0.25"

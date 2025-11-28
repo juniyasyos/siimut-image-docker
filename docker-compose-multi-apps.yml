@@ -1,3 +1,5 @@
+name: service-app
+
 ####################################################################################################
 # Base APP PHP Application - Unified with Supervisor (Hospital Single-App)
 ####################################################################################################
@@ -96,11 +98,11 @@ services:
         ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-        APP_DIR: siimut           
+        APP_DIR: si-imut           
         APP_NAME: "SIIMUT"
     container_name: siimut-app
     env_file:
-      - ./env/env.siimut               # ENV khusus siimut (kalau mau dipisah)
+      - ./env/.env.siimut               # ENV khusus siimut (kalau mau dipisah)
     volumes:
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
@@ -114,7 +116,7 @@ services:
     image: siimut-app:latest      # pakai image yang sama dengan app-siimut
     container_name: siimut-queue
     env_file:
-      - .env.siimut
+      - ./env/.env.siimut
     volumes:
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
@@ -141,7 +143,7 @@ services:
     image: siimut-app:latest
     container_name: siimut-scheduler
     env_file:
-      - .env.siimut
+      - ./env/.env.siimut
     volumes:
       - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
       - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
@@ -202,27 +204,21 @@ services:
   ####################################################################################################
   db:
     image: mariadb:10.11
-    container_name: ${STACK_NAME:-siimut}-db
+    container_name: database-service
     restart: unless-stopped
-    # Security: Remove external port exposure for production
     # ports:
-    #   - "${DB_PORT:-3306}:3306"  # Comment out for production security
+    #   - "${DB_PORT:-3306}:3306"  # tetap dikomentari untuk production
     volumes:
       - db_data:/var/lib/mysql
       - db_logs:/var/log/mysql
       - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
-      # Comment out SQL init directory if empty to avoid mount issues
-      # - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
+      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro 
     env_file:
-      - .env.production
+      - ./env/.env.db
     environment:
+      # Hanya yang penting saja, database & user akan dibuat dari script SQL
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      # Production security
-      MYSQL_RANDOM_ROOT_PASSWORD: ${MYSQL_RANDOM_ROOT_PASSWORD:-no}
-    # Production resource limits
+      MYSQL_RANDOM_ROOT_PASSWORD: "no"
     deploy:
       resources:
         limits:
@@ -351,10 +347,13 @@ volumes:
   #   driver: local
 
   # PHP application data (only persistent storage, no vendor)
-  storage_data:
-    driver: local
-  bootstrap_cache:
-    driver: local
+  # SIIMUT
+  siimut_storage:
+  siimut_bootstrap_cache:
+
+  # IAM
+  iam_storage:
+  iam_bootstrap_cache:
 
   # phpMyAdmin sessions
   phpmyadmin_sessions:

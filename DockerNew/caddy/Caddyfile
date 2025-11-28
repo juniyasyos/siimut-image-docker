@@ -1,20 +1,14 @@
-# =============================================
-# Caddy Configuration - Production Optimized
-# =============================================
-# Hospital SIIMUT - Single Laravel App Container
-# All static files served by PHP container (no bind mount)
-
-# Global options
 {
-	auto_https off
-	admin off
+    auto_https off
+    admin off
 }
 
-# Main site configuration
-:8080 {
-    root * /var/www/html/public
+##################################################################
+# SIIMUT — Port 8088
+##################################################################
+:8088 {
+    root * /var/www/siimut/public
 
-    # Security headers
     header {
         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
         X-Content-Type-Options "nosniff"
@@ -26,21 +20,53 @@
 
     encode gzip
 
-    # Health check endpoint
     @health path /health
     handle @health {
         respond "OK" 200
     }
 
-    # HANYA request PHP yang dilempar ke app:9000
-    php_fastcgi app:9000
+    php_fastcgi app-siimut:9000
 
-    # Static file (CSS, JS, images, build assets) diserve langsung oleh Caddy
     file_server
 
-    # Logging (opsional, bisa kamu pertahankan)
     log {
-        output file /var/log/caddy/access.log {
+        output file /var/log/caddy/access_siimut.log {
+            roll_size 100MB
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
+
+##################################################################
+# IAM — Port 6000
+##################################################################
+:6000 {
+    root * /var/www/iam/public
+
+    header {
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    encode gzip
+
+    @health path /health
+    handle @health {
+        respond "OK" 200
+    }
+
+    php_fastcgi app-iam:9000
+
+    file_server
+
+    log {
+        output file /var/log/caddy/access_iam.log {
             roll_size 100MB
             roll_keep 10
             roll_keep_for 720h

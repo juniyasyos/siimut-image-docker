@@ -3,10 +3,11 @@
 # =========================
 FROM php:8.4-fpm-alpine AS base
 
-# Build args
+# Build args (global)
 ARG UID=1000
 ARG GID=1000
 ARG TZ=Asia/Jakarta
+ARG APP_NAME="Laravel Application"
 
 # Sistem & build deps (prod-friendly)
 RUN apk add --no-cache \
@@ -44,29 +45,36 @@ RUN addgroup -g "${GID}" www \
 
 WORKDIR /var/www/html
 
+# Ekspos APP_NAME sebagai ENV (buat logging/debug kalau mau)
+ENV APP_NAME=${APP_NAME}
+
 # =========================
 # Stage 2: Dependencies (composer install)
 # =========================
 FROM base AS deps
 
 # Monorepo support: app ada di site/${APP_DIR}
-ARG APP_DIR=si-imut
+# Contoh:
+#   APP_DIR=siimut  -> source di: site/siimut
+#   APP_DIR=iam     -> source di: site/iam
+ARG APP_DIR=siimut
 
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
     COMPOSER_MEMORY_LIMIT=-1
 
 WORKDIR /var/www/html
 
-# Copy seluruh source dari context
+# Copy seluruh source dari context ke temp directory
 COPY . ./temp_context
 
 RUN set -eux; \
+    echo ">> Building application for APP_DIR='${APP_DIR}'"; \
     # Kalau ada struktur site/${APP_DIR}, pakai itu. Kalau tidak, pakai root.
     if [ -d "temp_context/site/${APP_DIR}" ]; then \
-      echo ">> Using app from site/${APP_DIR}"; \
+      echo ">> Using app from temp_context/site/${APP_DIR}"; \
       cp -r "temp_context/site/${APP_DIR}/." "./"; \
     else \
-      echo ">> Using app from repository root"; \
+      echo ">> Using app from repository root (temp_context)"; \
       cp -r "temp_context/." "./"; \
     fi; \
     rm -rf temp_context; \
@@ -91,10 +99,13 @@ RUN set -eux; \
 FROM base AS app
 
 ARG TZ=Asia/Jakarta
+# Biar APP_NAME juga kebawa di stage ini (kalau mau dipakai di log dll)
+ARG APP_NAME="Laravel Application"
 
 ENV APP_ENV=production \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    PHP_MEMORY_LIMIT=512M
+    PHP_MEMORY_LIMIT=512M \
+    APP_NAME=${APP_NAME}
 
 # PHP & FPM tuning (production)
 RUN set -eux; \

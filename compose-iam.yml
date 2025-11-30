@@ -130,6 +130,50 @@ services:
       start_period: 60s
 
 
+  ####################################################################################################
+  # phpMyAdmin - Development/Staging Tool (Keep as requested)
+  ####################################################################################################
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: ${STACK_NAME:-siimut}-phpmyadmin
+    restart: unless-stopped
+    # profiles:
+    #   - dev # Only start with --profile dev
+    ports:
+      - "9000:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+      PMA_ABSOLUTE_URI: http://localhost:${PMA_PORT:-8081}/
+      # Security
+      PMA_BLOWFISH_SECRET: siimut-production-secret-key-change-in-production-2024
+      # Enhanced limits for production data
+      UPLOAD_LIMIT: 1024M
+      MEMORY_LIMIT: 1024M
+      POST_MAX_SIZE: 1024M
+      MAX_EXECUTION_TIME: 600
+      MAX_INPUT_TIME: 600
+      MAX_INPUT_VARS: 10000
+    volumes:
+      - phpmyadmin_sessions:/sessions
+      # Removed config file mount to avoid permission issues
+      # - ./DockerNew/phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php:ro
+    # Removed user specification to avoid permission issues with mounted volumes
+    # user: "33:33"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Resource limits for phpMyAdmin
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
 ####################################################################################################
 # Named Volumes - Production Optimized (Multi Laravel Apps, No Redis)
 ####################################################################################################
@@ -154,6 +198,10 @@ volumes:
   iam_storage:
     driver: local
   iam_bootstrap_cache:
+    driver: local
+  
+  # phpMyAdmin sessions
+  phpmyadmin_sessions:
     driver: local
 
 ####################################################################################################

@@ -1,9 +1,0 @@
-# Database initialization files go here
-# Files will be executed in alphabetical order
-# 
-# Example:
-# 01-create-database.sql
-# 02-create-users.sql
-# 03-initial-data.sql
-#
-# .gitignore is included to keep this directory in version control

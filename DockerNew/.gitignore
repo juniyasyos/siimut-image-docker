@@ -10,7 +10,6 @@
 # Semua data database dan backup
 db/data/
 db/logs/
-db/sql/*.sql
 db/sql/*.dump
 db/sql/*.backup
 

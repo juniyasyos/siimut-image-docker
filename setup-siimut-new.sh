@@ -24,7 +24,7 @@ echo -e "${GREEN}==========================${NC}"
 APPS=(
   "siimut|https://github.com/juniyasyos/si-imut.git|iam-integration"
   "iam|https://github.com/juniyasyos/laravel-iam.git|main"
-  "client|https://github.com/juniyasyos/client-iiam.gt|master"
+  "client|https://github.com/juniyasyos/client-iiam.git|master"
 )
 
 # Bisa di-override via ENV global kalau mau

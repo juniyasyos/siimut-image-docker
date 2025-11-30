@@ -4,12 +4,15 @@ set -e
 echo "🚀 Starting Apps (env: ${APP_ENV:-production})"
 
 APP_ENV="${APP_ENV:-production}"
+APP_WORKDIR="${APP_WORKDIR:-/var/www/html}"  # 🔹 default, bisa dioverride dari Docker/compose
 
-cd /var/www/html
+echo "📁 Using APP_WORKDIR=${APP_WORKDIR}"
+
+cd "${APP_WORKDIR}"
 
 # Pastikan Laravel ada
 if [ ! -f artisan ]; then
-    echo "❌ Laravel artisan file not found in /var/www/html"
+    echo "❌ Laravel artisan file not found in ${APP_WORKDIR}"
     exit 1
 fi
 
@@ -71,9 +74,7 @@ php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed (c
 
 echo "📊 Container ready at: $(date)"
 
-cd /var/www/html
-
-# Fix permissions for storage & cache
+# Fix permissions for storage & cache (relatif ke APP_WORKDIR)
 if [ -d storage ]; then
   chown -R www:www storage bootstrap/cache || true
   chmod -R ug+rwX storage bootstrap/cache || true

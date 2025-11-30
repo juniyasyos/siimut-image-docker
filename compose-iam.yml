@@ -1,0 +1,167 @@
+name: service-app
+
+####################################################################################################
+# Base APP PHP Application - Unified with Supervisor (Hospital Single-App)
+####################################################################################################
+x-app-base: &app-base
+  working_dir: /var/www/html
+  env_file:
+    - .env.production # bisa diganti per-app nanti
+  environment:
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "${PHP_OPCACHE_VALIDATE_TIMESTAMPS:-0}"
+    COMPOSER_CACHE_DIR: /tmp/composer
+    APP_ENV: ${APP_ENV:-production}
+    RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 1.5G
+        cpus: "1.5"
+      reservations:
+        memory: 768M
+        cpus: "0.75"
+  healthcheck:
+    test: ["CMD-SHELL", "php -v >/dev/null 2>&1"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+
+services:
+  ####################################################################################################
+  # Caddy Web Server - Production Optimized
+  ####################################################################################################
+  web:
+    image: caddy:2-alpine
+    container_name: app-web
+    ports:
+      - "7000:7000"
+    volumes:
+      - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - iam_app:/var/www/iam:ro            
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      app-iam-server:
+        condition: service_healthy
+    restart: unless-stopped
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8088/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  ####################################################################################################
+  # Apps IAM
+  ####################################################################################################
+  app-iam-server:
+    <<: *app-base
+    image: iam-app:latest
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.production
+      args:
+        APP_ENV: ${APP_ENV:-production}
+        ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        APP_DIR: iam-server  
+        APP_NAME: "IAM Application"
+        APP_WORKDIR: /var/www/iam
+    container_name: iam-server-app
+    working_dir: /var/www/iam
+    env_file:
+      - ./env/.env.iam
+    volumes:
+      - iam_app:/var/www/iam
+      - iam_storage:/var/www/iam/storage
+      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    command: ["php-fpm", "-F"]
+
+  ####################################################################################################
+  # DATABASE (MariaDB) - Production Optimized
+  ####################################################################################################
+  db:
+    image: mariadb:10.11
+    container_name: database-service
+    restart: unless-stopped
+    volumes:
+      - db_data:/var/lib/mysql
+      - db_logs:/var/log/mysql
+      - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
+      - ./DockerNew/db/save/:/etc/mysql/save/
+    env_file:
+      - ./env/.env.db
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass123
+      MYSQL_RANDOM_ROOT_PASSWORD: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+
+####################################################################################################
+# Named Volumes - Production Optimized (Multi Laravel Apps, No Redis)
+####################################################################################################
+volumes:
+  # Web server data
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local
+
+  # Database data with backup considerations
+  db_data:
+    driver: local
+  db_logs:
+    driver: local
+
+  # IAM
+  iam_app:
+    driver: local
+  iam_storage:
+    driver: local
+  iam_bootstrap_cache:
+    driver: local
+
+####################################################################################################
+# Networks - Production Security
+####################################################################################################
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -39,16 +39,20 @@ services:
     image: caddy:2-alpine
     container_name: ${STACK_NAME:-siimut}-web
     ports:
-      - "${WEB_HTTP_PORT:-8080}:8080"
-      - "443:443" # TLS support for production
+      - "8088:8088"
+      - "7000:7000"
+      # - "443:443" # TLS support for production
     volumes:
-      # Use production optimized Caddyfile
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # - siimut_app:/var/www/siimut:ro      
+      - iam_app:/var/www/iam:ro            
       - caddy_data:/data
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     depends_on:
       app-siimut:
+        condition: service_healthy
+      app-iam-server:
         condition: service_healthy
     restart: unless-stopped
     # Production resource limits
@@ -61,18 +65,7 @@ services:
           memory: 128M
           cpus: "0.25"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/",
-          "||",
-          "exit",
-          "1",
-        ]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8088/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -87,83 +80,87 @@ services:
   ####################################################################################################
   # Apps SIIMUT
   ####################################################################################################
-  app-siimut:
-    <<: *app-base
-    image: siimut-app:latest
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.production
-      args:
-        APP_ENV: ${APP_ENV:-production}
-        ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        APP_DIR: si-imut           
-        APP_NAME: "SIIMUT"
-    container_name: siimut-app
-    env_file:
-      - ./env/.env.siimut               # ENV khusus siimut (kalau mau dipisah)
-    volumes:
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-      - siimut_storage:/var/www/html/storage
-      - siimut_bootstrap_cache:/var/www/html/bootstrap/cache
-    entrypoint: ["/usr/local/bin/entrypoint.sh"]
-    command: ["php-fpm", "-F"]
+  # app-siimut:
+  #   <<: *app-base
+  #   image: siimut-app:latest
+  #   build:
+  #     context: .
+  #     dockerfile: DockerNew/php/Dockerfile.production
+  #     args:
+  #       APP_ENV: ${APP_ENV:-production}
+  #       ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
+  #       UID: ${UID:-1000}
+  #       GID: ${GID:-1000}
+  #       APP_DIR: si-imut
+  #       APP_NAME: "SIIMUT"
+  #   container_name: siimut-app
+  #   working_dir: /var/www/siimut
+  #   env_file:
+  #     - ./env/.env.siimut # ENV khusus siimut (kalau mau dipisah)
+  #   volumes:
+  #     - siimut_app:/var/www/siimut                              # ⬅️ kode app SIIMUT
+  #     - siimut_storage:/var/www/siimut/storage
+  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+  #     - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+  #     - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+  #   entrypoint: ["/usr/local/bin/entrypoint.sh"]
+  #   command: ["php-fpm", "-F"]
 
-  queue-siimut:
-    <<: *app-base
-    image: siimut-app:latest      # pakai image yang sama dengan app-siimut
-    container_name: siimut-queue
-    env_file:
-      - ./env/.env.siimut
-    volumes:
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-      - siimut_storage:/var/www/html/storage
-      - siimut_bootstrap_cache:/var/www/html/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan queue:work --sleep=3 --tries=3
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.75"
-        reservations:
-          memory: 256M
-          cpus: "0.25"
+  # queue-siimut:
+  #   <<: *app-base
+  #   image: siimut-app:latest
+  #   container_name: siimut-queue
+  #   working_dir: /var/www/siimut
+  #   env_file:
+  #     - ./env/.env.siimut
+  #   volumes:
+  #     - siimut_storage:/var/www/siimut/storage
+  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+  #     - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+  #     - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+  #   entrypoint: ["php"]
+  #   command: >
+  #     artisan queue:work --sleep=3 --tries=3
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 512M
+  #         cpus: "0.75"
+  #       reservations:
+  #         memory: 256M
+  #         cpus: "0.25"
 
-  scheduler-siimut:
-    <<: *app-base
-    image: siimut-app:latest
-    container_name: siimut-scheduler
-    env_file:
-      - ./env/.env.siimut
-    volumes:
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-      - siimut_storage:/var/www/html/storage
-      - siimut_bootstrap_cache:/var/www/html/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan schedule:work
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
+  # scheduler-siimut:
+  #   <<: *app-base
+  #   image: siimut-app:latest
+  #   container_name: siimut-scheduler
+  #   working_dir: /var/www/siimut
+  #   env_file:
+  #     - ./env/.env.siimut
+  #   volumes:
+  #     - siimut_storage:/var/www/siimut/storage
+  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+  #     - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+  #     - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+  #   entrypoint: ["php"]
+  #   command: >
+  #     artisan schedule:work
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 256M
+  #         cpus: "0.5"
+  #       reservations:
+  #         memory: 128M
+  #         cpus: "0.25"
 
 
   ####################################################################################################
@@ -180,18 +177,21 @@ services:
         ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-        APP_DIR: iam-server               # folder project IAM (site/iam)
+        APP_DIR: iam-server        # folder project IAM (site/iam)
         APP_NAME: "IAM Application"
     container_name: iam-server-app
+    working_dir: /var/www/html
     env_file:
       - ./env/.env.iam
     volumes:
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
+      - iam_app:/var/www/html
       - iam_storage:/var/www/html/storage
       - iam_bootstrap_cache:/var/www/html/bootstrap/cache
+      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     command: ["php-fpm", "-F"]
+
 
   ####################################################################################################
   ####################################################################################################
@@ -212,12 +212,14 @@ services:
       - db_data:/var/lib/mysql
       - db_logs:/var/log/mysql
       - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
-      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro 
+      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
+      - ./DockerNew/db/save/:/etc/mysql/save/
     env_file:
       - ./env/.env.db
     environment:
       # Hanya yang penting saja, database & user akan dibuat dari script SQL
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_ROOT_PASSWORD: rootpass123
       MYSQL_RANDOM_ROOT_PASSWORD: "no"
     deploy:
       resources:
@@ -323,7 +325,7 @@ services:
   # All background jobs and scheduling now handled by supervisord in app container
 
 ####################################################################################################
-# Named Volumes - Production Optimized (No Redis)
+# Named Volumes - Production Optimized (Multi Laravel Apps, No Redis)
 ####################################################################################################
 volumes:
   # Web server data
@@ -340,20 +342,24 @@ volumes:
   db_logs:
     driver: local
 
-  # Redis data - DISABLED (sehat, kenapa harus pakai obat)
-  # redis_data:
-  #   driver: local
-  # redis_logs:
-  #   driver: local
+  # ====== KODE APP (dibagi per aplikasi, untuk dishare ke Caddy) ======
+  siimut_app:
+    driver: local
+  iam_app:
+    driver: local
 
-  # PHP application data (only persistent storage, no vendor)
+  # ====== DATA PERSISTEN LARAVEL (tanpa vendor) ======
   # SIIMUT
   siimut_storage:
+    driver: local
   siimut_bootstrap_cache:
+    driver: local
 
   # IAM
   iam_storage:
+    driver: local
   iam_bootstrap_cache:
+    driver: local
 
   # phpMyAdmin sessions
   phpmyadmin_sessions:

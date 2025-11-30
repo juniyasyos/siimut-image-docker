@@ -3,46 +3,45 @@
     admin off
 }
 
-##################################################################
-# SIIMUT — Port 8088
-##################################################################
-:8088 {
-    root * /var/www/siimut/public
+# # =========================
+# # SIIMUT — :8088
+# # =========================
+# :8088 {
+#     root * /var/www/siimut/public
 
-    header {
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        -Server
-    }
+#     header {
+#         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "DENY"
+#         X-XSS-Protection "1; mode=block"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#         -Server
+#     }
 
-    encode gzip
+#     encode gzip
 
-    @health path /health
-    handle @health {
-        respond "OK" 200
-    }
+#     @health path /health
+#     handle @health {
+#         respond "OK" 200
+#     }
 
-    php_fastcgi app-siimut:9000
+#     php_fastcgi app-siimut:9000
+#     file_server
 
-    file_server
+#     log {
+#         output file /var/log/caddy/access_siimut.log {
+#             roll_size 100MB
+#             roll_keep 10
+#             roll_keep_for 720h
+#         }
+#         format json
+#     }
+# }
 
-    log {
-        output file /var/log/caddy/access_siimut.log {
-            roll_size 100MB
-            roll_keep 10
-            roll_keep_for 720h
-        }
-        format json
-    }
-}
-
-##################################################################
-# IAM — Port 6000
-##################################################################
-:6000 {
+# =========================
+# IAM — :7000
+# =========================
+:7000 {
     root * /var/www/iam/public
 
     header {
@@ -61,8 +60,8 @@
         respond "OK" 200
     }
 
-    php_fastcgi app-iam:9000
-
+    # ⬅️ FIX nama servicenya, tadi salah app-iam
+    php_fastcgi app-iam-server:9000
     file_server
 
     log {

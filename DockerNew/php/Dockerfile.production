@@ -8,6 +8,7 @@ ARG UID=1000
 ARG GID=1000
 ARG TZ=Asia/Jakarta
 ARG APP_NAME="Laravel Application"
+ARG APP_WORKDIR=/var/www/html
 
 # Sistem & build deps (prod-friendly)
 RUN apk add --no-cache \
@@ -43,7 +44,7 @@ RUN addgroup -g "${GID}" www \
   && sed -ri 's/^user = .*/user = www/' /usr/local/etc/php-fpm.d/www.conf \
   && sed -ri 's/^group = .*/group = www/' /usr/local/etc/php-fpm.d/www.conf
 
-WORKDIR /var/www/html
+WORKDIR ${APP_WORKDIR}
 
 # Ekspos APP_NAME sebagai ENV (buat logging/debug kalau mau)
 ENV APP_NAME=${APP_NAME}
@@ -62,7 +63,7 @@ ARG APP_DIR=siimut
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
     COMPOSER_MEMORY_LIMIT=-1
 
-WORKDIR /var/www/html
+WORKDIR ${APP_WORKDIR}
 
 # Copy seluruh source dari context ke temp directory
 COPY . ./temp_context
@@ -105,7 +106,8 @@ ARG APP_NAME="Laravel Application"
 ENV APP_ENV=production \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
     PHP_MEMORY_LIMIT=512M \
-    APP_NAME=${APP_NAME}
+    APP_NAME=${APP_NAME} \
+    APP_WORKDIR=${APP_WORKDIR}
 
 # PHP & FPM tuning (production)
 RUN set -eux; \
@@ -160,7 +162,7 @@ RUN set -eux; \
   sed -ri 's|^;?access\.log =.*|access.log = /proc/self/fd/2|' /usr/local/etc/php-fpm.d/www.conf
 
 # Copy app + vendor dari stage deps
-COPY --from=deps /var/www/html /var/www/html
+COPY --from=deps ${APP_WORKDIR} ${APP_WORKDIR}
 
 # Permission minimal untuk runtime
 RUN set -eux; \

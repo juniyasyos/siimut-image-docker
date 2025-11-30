@@ -74,6 +74,71 @@ clone_or_update_repo() {
     echo ""
 }
 
+copy_env_if_needed() {
+    local app_name="$1"
+    local app_dir="site/${app_name}"
+
+    echo -e "${BLUE}🔐 ENV setup for ${YELLOW}${app_name}${NC}"
+
+    if [ -f "${app_dir}/.env" ]; then
+        echo -e "${YELLOW}   ⚠️ .env already exists — skipping copy${NC}"
+        return
+    fi
+
+    if [ -f "${app_dir}/.env.example" ]; then
+        cp "${app_dir}/.env.example" "${app_dir}/.env"
+        echo -e "${GREEN}   ✅ .env copied from .env.example${NC}"
+    elif [ -f "${app_dir}/.env.example.local" ]; then
+        cp "${app_dir}/.env.example.local" "${app_dir}/.env"
+        echo -e "${GREEN}   ✅ .env copied from .env.example.local${NC}"
+    else
+        echo -e "${YELLOW}   ⚠️ No .env.example found — skipping${NC}"
+    fi
+
+    echo ""
+}
+
+
+# 🔧 NEW: Install composer/npm + build per app
+install_app_dependencies() {
+    local app_name="$1"
+    local app_dir="site/${app_name}"
+
+    echo -e "${BLUE}🔧 Installing dependencies for ${YELLOW}${app_name}${NC}"
+
+    # Composer install (kalau ada composer.json dan composer terpasang)
+    if command_exists composer && [ -f "${app_dir}/composer.json" ]; then
+        echo -e "${YELLOW}   ▶ Running composer install...${NC}"
+        pushd "${app_dir}" >/dev/null
+        composer install --no-interaction --prefer-dist --optimize-autoloader \
+            || echo -e "${RED}   ❌ composer install failed in ${app_name}${NC}"
+        popd >/dev/null
+    else
+        echo -e "${YELLOW}   ⚠️ Skip composer (tidak ada composer.json atau composer belum terinstall)${NC}"
+    fi
+
+    # NPM install + build (kalau ada package.json dan npm terpasang)
+    if command_exists npm && [ -f "${app_dir}/package.json" ]; then
+        pushd "${app_dir}" >/dev/null
+        echo -e "${YELLOW}   ▶ Running npm install...${NC}"
+        npm install || echo -e "${RED}   ❌ npm install failed in ${app_name}${NC}"
+
+        # Cek ada script "build" di package.json (cek sederhana)
+        if grep -q "\"build\"" package.json; then
+            echo -e "${YELLOW}   ▶ Running npm run build...${NC}"
+            npm run build || echo -e "${RED}   ❌ npm run build failed in ${app_name}${NC}"
+        else
+            echo -e "${YELLOW}   ⚠️ Tidak ditemukan script build, skip npm run build${NC}"
+        fi
+
+        popd >/dev/null
+    else
+        echo -e "${YELLOW}   ⚠️ Skip npm (tidak ada package.json atau npm belum terinstall)${NC}"
+    fi
+
+    echo ""
+}
+
 # =========================
 # 📋 Cek dependency
 # =========================
@@ -118,63 +183,26 @@ for app_def in "${APPS[@]}"; do
     clone_or_update_repo "${APP_NAME}" "${REPO_URL}" "${BRANCH}"
 done
 
+for app_def in "${APPS[@]}"; do
+    IFS='|' read -r APP_NAME REPO_URL BRANCH <<< "${app_def}"
+    clone_or_update_repo "${APP_NAME}" "${REPO_URL}" "${BRANCH}"
+    copy_env_if_needed "${APP_NAME}"          # ⬅️ tambahan baru
+done
+
 # =========================
-# ⚙️ Generate .env (global)
+# 🔧 NEW: Jalankan composer/npm/build untuk semua app
 # =========================
-if [ ! -f ".env" ]; then
-    echo -e "${BLUE}⚙️  Creating environment configuration (.env)...${NC}"
-
-    # ambil app pertama sebagai default nama app
-    IFS='|' read -r FIRST_APP_NAME FIRST_REPO FIRST_BRANCH <<< "${APPS[0]}"
-
-    cat > .env << EOF
-# ========= Global Stack Config =========
-STACK_NAME=siimut-stack
-
-# Default app (bisa diubah)
-APP_NAME=${FIRST_APP_NAME}
-APP_ENV=local
-APP_PORT=8000
-
-# Database
-MYSQL_ROOT_PASSWORD=secret123
-MYSQL_DATABASE=siimut_db
-MYSQL_USER=siimut_user
-MYSQL_PASSWORD=secret123
-MYSQL_PORT=3306
-
-# phpMyAdmin
-PMA_PORT=8080
-
-# Redis
-REDIS_PORT=6379
-
-# ========= Repos (for reference) =========
-EOF
-
-    # Tambahkan info setiap app ke .env sebagai dokumentasi
-    idx=1
-    for app_def in "${APPS[@]}"; do
-        IFS='|' read -r APP_NAME REPO_URL BRANCH <<< "${app_def}"
-        cat >> .env << EOF
-APP${idx}_NAME=${APP_NAME}
-APP${idx}_REPO=${REPO_URL}
-APP${idx}_BRANCH=${BRANCH}
-
-EOF
-        ((idx++))
-    done
-
-    echo -e "${GREEN}✅ Environment file created (.env)${NC}"
-else
-    echo -e "${YELLOW}⚠️  Environment file .env already exists, skipping...${NC}"
-fi
+echo -e "${BLUE}🔧 Installing PHP & JS dependencies for all apps...${NC}"
+for app_def in "${APPS[@]}"; do
+    IFS='|' read -r APP_NAME REPO_URL BRANCH <<< "${app_def}"
+    install_app_dependencies "${APP_NAME}"
+done
 
 # =========================
 # 🔐 Caddyfile check
 # =========================
-if [ ! -f "Docker/caddy/Caddyfile" ]; then
-    echo -e "${RED}❌ Caddyfile not found. Please create Docker/caddy/Caddyfile${NC}"
+if [ ! -f "DockerNew/caddy/Caddyfile" ]; then
+    echo -e "${RED}❌ Caddyfile not found. Please create DockerNew/caddy/Caddyfile${NC}"
     echo -e "${YELLOW}   Contoh: map domain/subdomain ke masing-masing app container.${NC}"
     exit 1
 fi

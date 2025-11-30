@@ -3,40 +3,40 @@
     admin off
 }
 
-# # =========================
-# # SIIMUT — :8088
-# # =========================
-# :8088 {
-#     root * /var/www/siimut/public
+# =========================
+# SIIMUT — :8088
+# =========================
+:8088 {
+    root * /var/www/siimut/public
 
-#     header {
-#         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
-#         X-Content-Type-Options "nosniff"
-#         X-Frame-Options "DENY"
-#         X-XSS-Protection "1; mode=block"
-#         Referrer-Policy "strict-origin-when-cross-origin"
-#         -Server
-#     }
+    header {
+        # Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+        # X-Content-Type-Options "nosniff"
+        # X-Frame-Options "DENY"
+        # X-XSS-Protection "1; mode=block"
+        # Referrer-Policy "strict-origin-when-cross-origin"
+        # -Server
+    }
 
-#     encode gzip
+    encode gzip
 
-#     @health path /health
-#     handle @health {
-#         respond "OK" 200
-#     }
+    @health path /health
+    handle @health {
+        respond "OK" 200
+    }
 
-#     php_fastcgi app-siimut:9000
-#     file_server
+    php_fastcgi app-siimut:9000
+    file_server
 
-#     log {
-#         output file /var/log/caddy/access_siimut.log {
-#             roll_size 100MB
-#             roll_keep 10
-#             roll_keep_for 720h
-#         }
-#         format json
-#     }
-# }
+    log {
+        output file /var/log/caddy/access_siimut.log {
+            roll_size 100MB
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
 
 # =========================
 # IAM — :7000
@@ -45,12 +45,12 @@
     root * /var/www/iam/public
 
     header {
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        -Server
+        # Content-Security-Policy "default-src 'self'; \
+        #     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com; \
+        #     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://unpkg.com; \
+        #     font-src 'self' data: https://fonts.gstatic.com; \
+        #     img-src 'self' data: https:; \
+        #     connect-src 'self'"
     }
 
     encode gzip

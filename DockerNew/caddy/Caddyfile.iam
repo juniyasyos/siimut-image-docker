@@ -25,10 +25,8 @@
         respond "OK" 200
     }
 
-    # PHP-FPM untuk file .php
-    php_fastcgi app:9000 {
-        try_files {path} /index.php?{query}
-    }
+    # PHP-FPM untuk file .php (harus sebelum file_server)
+    php_fastcgi app:9000
 
     # Serve static files
     file_server

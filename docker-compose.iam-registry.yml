@@ -41,7 +41,7 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - iam-network
+      - default
 
   ####################################################################################################
   # IAM Application (from Registry)
@@ -57,14 +57,12 @@ services:
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
       APP_WORKDIR: /var/www/iam
       PUBLIC_VOLUME: /var/www/public-shared  # Tell entrypoint to sync public/
+      DB_HOST: database-service  # Use actual container name from base compose
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage
       - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
       - iam_public:/var/www/public-shared  # Shared with Caddy for static files
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -81,36 +79,7 @@ services:
       retries: 3
       start_period: 60s
     networks:
-      - iam-network
-
-  ####################################################################################################
-  # Database (MySQL/MariaDB)
-  ####################################################################################################
-  db:
-    image: mariadb:11
-    container_name: iam-db
-    env_file:
-      - ./env/.env.db
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: "2"
-        reservations:
-          memory: 512M
-          cpus: "0.5"
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - iam-network
+      - default
 
 ####################################################################################################
 # Volumes
@@ -132,16 +101,10 @@ volumes:
   iam_public:
     driver: local  # Shared: app copies public/ here, Caddy serves from here
   
-  # Database
-  db_data:
-    driver: local
-
 ####################################################################################################
 # Networks
 ####################################################################################################
 networks:
-  iam-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.21.0.0/16
+  default:
+    name: rsch-srv_default
+    external: true

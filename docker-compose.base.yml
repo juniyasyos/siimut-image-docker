@@ -24,7 +24,7 @@ services:
       timeout: 3s
       retries: 12
     networks:
-      - siimut-net
+      - default
 
   minio-init:
     image: minio/mc:latest

@@ -152,7 +152,7 @@ volumes:
     driver: local
 
   phpmyadmin_sessions:
-    driver: 
+    driver: local
     
 networks:
   default:

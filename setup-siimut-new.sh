@@ -23,7 +23,7 @@ echo -e "${GREEN}==========================${NC}"
 # =========================
 APPS=(
 #   "iam|https://github.com/juniyasyos/laravel-iam.git|dev"
-  "siimut|https://github.com/juniyasyos/siimut.git|iam-integration"
+  "siimut|https://github.com/juniyasyos/si-imut.git|feat-daily-report"
 )
 
 # Bisa di-override via ENV global kalau mau

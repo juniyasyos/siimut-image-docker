@@ -10,12 +10,11 @@
     root * /var/www/siimut/public
 
     header {
-        # Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
-        # X-Content-Type-Options "nosniff"
-        # X-Frame-Options "DENY"
-        # X-XSS-Protection "1; mode=block"
-        # Referrer-Policy "strict-origin-when-cross-origin"
-        # -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
     }
 
     encode gzip
@@ -25,7 +24,7 @@
         respond "OK" 200
     }
 
-    php_fastcgi app-siimut:9000
+    php_fastcgi siimut-app:9000
     file_server
 
     log {
@@ -45,12 +44,11 @@
     root * /var/www/iam/public
 
     header {
-        # Content-Security-Policy "default-src 'self'; \
-        #     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com; \
-        #     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://unpkg.com; \
-        #     font-src 'self' data: https://fonts.gstatic.com; \
-        #     img-src 'self' data: https:; \
-        #     connect-src 'self'"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
     }
 
     encode gzip
@@ -60,8 +58,7 @@
         respond "OK" 200
     }
 
-    # ⬅️ FIX nama servicenya, tadi salah app-iam
-    php_fastcgi app-iam-server:9000
+    php_fastcgi iam-app:9000
     file_server
 
     log {

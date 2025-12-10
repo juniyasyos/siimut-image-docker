@@ -37,22 +37,22 @@ services:
   ####################################################################################################
   web:
     image: caddy:2-alpine
-    container_name: ${STACK_NAME:-siimut}-web
+    container_name: ${STACK_NAME:-multi}-web
     ports:
       - "8088:8088"
       - "7000:7000"
       # - "443:443" # TLS support for production
     volumes:
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      # - siimut_app:/var/www/siimut:ro      
-      - iam_app:/var/www/iam:ro            
+      - siimut_public:/var/www/siimut/public:ro  # Public assets from SIIMUT
+      - iam_public:/var/www/iam/public:ro        # Public assets from IAM
       - caddy_data:/data
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     depends_on:
       app-siimut:
         condition: service_healthy
-      app-iam-server:
+      app-iam:
         condition: service_healthy
     restart: unless-stopped
     # Production resource limits
@@ -81,49 +81,56 @@ services:
   # Apps SIIMUT
   ####################################################################################################
   app-siimut:
-    <<: *app-base
-    image: siimut-app:latest
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.production
-      args:
-        APP_ENV: ${APP_ENV:-production}
-        ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        APP_DIR: si-imut
-        APP_NAME: "SIIMUT"
+    image: ${REGISTRY:-juniyasyos}/siimut-app:${VERSION:-latest}
     container_name: siimut-app
     working_dir: /var/www/siimut
     env_file:
-      - ./env/.env.siimut # ENV khusus siimut (kalau mau dipisah)
+      - ./env/.env.siimut
+    environment:
+      APP_ENV: production
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+      APP_WORKDIR: /var/www/siimut
+      PUBLIC_VOLUME: /var/www/public-shared-siimut
+      DB_HOST: database-service
     volumes:
-      - siimut_app:/var/www/siimut                              # ⬅️ kode app SIIMUT
+      # Only persistent data, NO CODE mounts
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-    entrypoint: ["/usr/local/bin/entrypoint.sh"]
-    command: ["php-fpm", "-F"]
+      - siimut_public:/var/www/public-shared-siimut  # Shared with Caddy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      default:
+        aliases:
+          - siimut-app
 
   queue-siimut:
-    <<: *app-base
-    image: siimut-app:latest
+    image: ${REGISTRY:-juniyasyos}/siimut-app:${VERSION:-latest}
     container_name: siimut-queue
     working_dir: /var/www/siimut
     env_file:
       - ./env/.env.siimut
+    environment:
+      DB_HOST: database-service
     volumes:
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
     entrypoint: ["php"]
     command: >
       artisan queue:work --sleep=3 --tries=3
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -135,23 +142,19 @@ services:
           cpus: "0.25"
 
   scheduler-siimut:
-    <<: *app-base
-    image: siimut-app:latest
+    image: ${REGISTRY:-juniyasyos}/siimut-app:${VERSION:-latest}
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
     env_file:
       - ./env/.env.siimut
+    environment:
+      DB_HOST: database-service
     volumes:
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
     entrypoint: ["php"]
     command: >
       artisan schedule:work
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -166,31 +169,42 @@ services:
   ####################################################################################################
   # Apps IAM
   ####################################################################################################
-  app-iam-server:
-    <<: *app-base
-    image: iam-app:latest
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.production
-      args:
-        APP_ENV: ${APP_ENV:-production}
-        ENABLE_XDEBUG: ${ENABLE_XDEBUG:-false}
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        APP_DIR: iam-server 
-        APP_NAME: "IAM Application"
-    container_name: iam-server-app
-    working_dir: /var/www/iam-server-app
+  app-iam:
+    image: ${REGISTRY:-juniyasyos}/iam-server:${VERSION:-latest}
+    container_name: iam-app
+    working_dir: /var/www/iam
     env_file:
       - ./env/.env.iam
+    environment:
+      APP_ENV: production
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+      APP_WORKDIR: /var/www/iam
+      PUBLIC_VOLUME: /var/www/public-shared-iam
+      DB_HOST: database-service
     volumes:
-      - iam_app:/var/www/iam-server-app
-      - iam_storage:/var/www/iam-server-app/storage
-      - iam_bootstrap_cache:/var/www/iam-server-app/bootstrap/cache
-      - ./DockerNew/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
-      - ./DockerNew/php/entrypoint-production.sh:/usr/local/bin/entrypoint.sh:ro
-    entrypoint: ["/usr/local/bin/entrypoint.sh"]
-    command: ["php-fpm", "-F"]
+      # Only persistent data, NO CODE mounts
+      - iam_storage:/var/www/iam/storage
+      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
+      - iam_public:/var/www/public-shared-iam  # Shared with Caddy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      default:
+        aliases:
+          - iam-app
 
 
   ####################################################################################################
@@ -211,10 +225,10 @@ volumes:
   caddy_logs:
     driver: local
 
-  # ====== KODE APP (dibagi per aplikasi, untuk dishare ke Caddy) ======
-  siimut_app:
+  # ====== PUBLIC ASSETS (untuk Caddy serve static files) ======
+  siimut_public:
     driver: local
-  iam_app:
+  iam_public:
     driver: local
 
   # ====== DATA PERSISTEN LARAVEL (tanpa vendor) ======
@@ -235,7 +249,5 @@ volumes:
 ####################################################################################################
 networks:
   default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
+    name: rsch-srv_default
+    external: true

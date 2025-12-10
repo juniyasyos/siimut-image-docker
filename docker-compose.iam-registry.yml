@@ -23,7 +23,7 @@ services:
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     depends_on:
-      app:
+      app-iam:
         condition: service_healthy
     restart: unless-stopped
     deploy:

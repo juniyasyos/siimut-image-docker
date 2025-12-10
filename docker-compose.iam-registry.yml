@@ -1,4 +1,4 @@
-name: iam-production
+name: rsch-srv
 
 ####################################################################################################
 # Production Docker Compose for IAM Server (Registry Mode)
@@ -46,7 +46,7 @@ services:
   ####################################################################################################
   # IAM Application (from Registry)
   ####################################################################################################
-  app:
+  app-iam:
     image: ${REGISTRY:-juniyasyos}/iam-server:${VERSION:-latest}
     container_name: iam-app
     working_dir: /var/www/iam

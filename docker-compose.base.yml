@@ -104,7 +104,6 @@ services:
   ####################################################################################################
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
-    container_name: ${STACK_NAME:-siimut}-phpmyadmin
     restart: unless-stopped
     # profiles:
     #   - dev # Only start with --profile dev

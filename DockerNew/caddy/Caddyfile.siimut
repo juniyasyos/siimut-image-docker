@@ -1,0 +1,42 @@
+{
+    auto_https off
+    admin off
+}
+
+# =========================
+# SIIMUT Application — :8088
+# =========================
+:8088 {
+    root * /var/www/siimut/public
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    encode gzip
+
+    # Health check endpoint
+    @health path /health
+    handle @health {
+        respond "OK" 200
+    }
+
+    # PHP-FPM untuk file .php (harus sebelum file_server)
+    php_fastcgi app:9000
+
+    # Serve static files
+    file_server
+
+    log {
+        output file /var/log/caddy/access_siimut.log {
+            roll_size 100MB
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}

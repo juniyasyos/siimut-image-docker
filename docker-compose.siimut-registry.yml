@@ -1,0 +1,110 @@
+name: siimut-production
+
+####################################################################################################
+# Production Docker Compose for SIIMUT Application (Registry Mode)
+# - Pull image from registry (no build, no dev mounts)
+# - Public assets synced to shared volume for Caddy
+####################################################################################################
+
+services:
+  ####################################################################################################
+  # Caddy Web Server
+  ####################################################################################################
+  web:
+    image: caddy:2-alpine
+    container_name: siimut-web
+    ports:
+      - "${SIIMUT_PORT:-8088}:8088"
+      # - "443:443" # TLS if needed
+    volumes:
+      - ./DockerNew/caddy/Caddyfile.siimut:/etc/caddy/Caddyfile:ro
+      - siimut_public:/var/www/siimut/public:ro  # Static files from app
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - default
+
+  ####################################################################################################
+  # SIIMUT Application (from Registry)
+  ####################################################################################################
+  app:
+    image: ${REGISTRY:-juniyasyos}/siimut-app:${VERSION:-latest}
+    container_name: siimut-app
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut
+    environment:
+      APP_ENV: production
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+      APP_WORKDIR: /var/www/siimut
+      PUBLIC_VOLUME: /var/www/public-shared  # Tell entrypoint to sync public/
+      DB_HOST: database-service  # Use actual container name from base compose
+    volumes:
+      # Only persistent data, NO CODE mounts
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - siimut_public:/var/www/public-shared  # Shared with Caddy for static files
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - default
+
+####################################################################################################
+# Volumes
+####################################################################################################
+volumes:
+  # Caddy data
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local
+  
+  # SIIMUT persistent data (NO app code)
+  siimut_storage:
+    driver: local
+  siimut_bootstrap_cache:
+    driver: local
+  siimut_public:
+    driver: local  # Shared: app copies public/ here, Caddy serves from here
+
+####################################################################################################
+# Networks
+####################################################################################################
+networks:
+  default:
+    name: rsch-srv_default
+    external: true

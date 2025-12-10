@@ -22,6 +22,13 @@ if [ "$APP_ENV" = "production" ] && [ ! -f ".env" ]; then
     exit 1
 fi
 
+# Run switch-auth-mode.sh if exists (for SIIMUT)
+if [ -f "./switch-auth-mode.sh" ]; then
+    echo "🔐 Setting authentication mode..."
+    chmod +x ./switch-auth-mode.sh
+    ./switch-auth-mode.sh prod || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
+fi
+
 # Copy public assets to shared volume for Caddy (only if PUBLIC_VOLUME is set and exists)
 if [ -n "${PUBLIC_VOLUME}" ] && [ -d "${PUBLIC_VOLUME}" ]; then
     echo "📦 Syncing public assets to ${PUBLIC_VOLUME}..."

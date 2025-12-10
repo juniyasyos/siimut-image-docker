@@ -1,0 +1,147 @@
+name: iam-production
+
+####################################################################################################
+# Production Docker Compose for IAM Server (Registry Mode)
+# - Pull image from registry (no build, no dev mounts)
+# - Public assets synced to shared volume for Caddy
+####################################################################################################
+
+services:
+  ####################################################################################################
+  # Caddy Web Server
+  ####################################################################################################
+  web:
+    image: caddy:2-alpine
+    container_name: iam-web
+    ports:
+      - "${IAM_PORT:-7000}:7000"
+      # - "443:443" # TLS if needed
+    volumes:
+      - ./DockerNew/caddy/Caddyfile.iam:/etc/caddy/Caddyfile:ro
+      - iam_public:/var/www/iam/public:ro  # Static files from app
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - iam-network
+
+  ####################################################################################################
+  # IAM Application (from Registry)
+  ####################################################################################################
+  app:
+    image: ${REGISTRY:-juniyasyos}/iam-server:${VERSION:-latest}
+    container_name: iam-app
+    working_dir: /var/www/iam
+    env_file:
+      - ./env/.env.iam
+    environment:
+      APP_ENV: production
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+      APP_WORKDIR: /var/www/iam
+      PUBLIC_VOLUME: /var/www/public-shared  # Tell entrypoint to sync public/
+    volumes:
+      # Only persistent data, NO CODE mounts
+      - iam_storage:/var/www/iam/storage
+      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
+      - iam_public:/var/www/public-shared  # Shared with Caddy for static files
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - iam-network
+
+  ####################################################################################################
+  # Database (MySQL/MariaDB)
+  ####################################################################################################
+  db:
+    image: mariadb:11
+    container_name: iam-db
+    env_file:
+      - ./env/.env.db
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - iam-network
+
+####################################################################################################
+# Volumes
+####################################################################################################
+volumes:
+  # Caddy data
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local
+  
+  # IAM persistent data (NO app code)
+  iam_storage:
+    driver: local
+  iam_bootstrap_cache:
+    driver: local
+  iam_public:
+    driver: local  # Shared: app copies public/ here, Caddy serves from here
+  
+  # Database
+  db_data:
+    driver: local
+
+####################################################################################################
+# Networks
+####################################################################################################
+networks:
+  iam-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

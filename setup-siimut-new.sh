@@ -22,9 +22,7 @@ echo -e "${GREEN}==========================${NC}"
 # Format: "APP_NAME|REPO_URL|BRANCH"
 # =========================
 APPS=(
-  "siimut|https://github.com/juniyasyos/si-imut.git|iam-integration"
-  "iam|https://github.com/juniyasyos/laravel-iam.git|main"
-  "client|https://github.com/juniyasyos/client-iiam.git|master"
+  "iam|https://github.com/juniyasyos/laravel-iam.git|dev"
 )
 
 # Bisa di-override via ENV global kalau mau

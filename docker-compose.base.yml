@@ -58,7 +58,7 @@ services:
       sleep 1;
       '
     networks:
-      - siimut-net
+      - default
     # jangan restart; kita jalankan sekali
     restart: "no"
 

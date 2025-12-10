@@ -11,7 +11,7 @@ ARG APP_NAME="IAM Server"
 
 # Sistem & build deps
 RUN apk add --no-cache \
-      tzdata bash shadow ca-certificates unzip \
+      tzdata bash shadow ca-certificates unzip su-exec \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \

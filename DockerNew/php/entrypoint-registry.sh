@@ -70,18 +70,27 @@ while (true) {
 }
 '
 
-# Laravel cache warming
-echo "⚙️  Warming Laravel caches..."
-php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
-php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
-php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
-php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
-
-# Fix permissions
+# Fix permissions BEFORE cache warming (penting!)
+echo "🔧 Setting up permissions..."
 if [ -d storage ]; then
+  # Buat direktori cache jika belum ada
+  mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views
+  mkdir -p storage/logs storage/app/public
+  mkdir -p bootstrap/cache
+  
+  # Set ownership dan permission
   chown -R www:www storage bootstrap/cache 2>/dev/null || true
   chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
+  
+  echo "✅ Permissions set"
 fi
+
+# Laravel cache warming (run as www user)
+echo "⚙️  Warming Laravel caches..."
+su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
+su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
+su-exec www php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
+su-exec www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
 
 echo "✅ IAM App ready at: $(date)"
 

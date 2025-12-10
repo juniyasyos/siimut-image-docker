@@ -30,36 +30,36 @@ services:
     image: minio/mc:latest
     container_name: minio-init
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     environment:
-      # menggunakan nilai yang sama dengan service minio; bisa override melalui .env
       MINIO_ROOT_USER: "${MINIO_ROOT_USER:-admin}"
       MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-password}"
       MINIO_BUCKET: "${MINIO_BUCKET:-siimut}"
-      MINIO_POLICY: "${MINIO_POLICY:-readonly}" # contoh nama policy jika mau custom
-    entrypoint: [ "sh", "-c" ]
-    # script: tunggu minio ready, set alias, buat bucket, set policy contoh
-    command: >
-      '
-      # tunggu sampai MinIO siap (health endpoint)
-      echo "Menunggu MinIO siap...";
-      until curl -sSf http://minio:9000/minio/health/ready >/dev/null 2>&1; do
-        sleep 1;
-      done;
-      echo "MinIO siap. Mengonfigurasi mc alias...";
-      mc alias set myminio http://minio:9000 "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}" --api S3v4;
-      echo "Membuat bucket ${MINIO_BUCKET} (jika belum ada)...";
-      mc mb --ignore-existing myminio/"${MINIO_BUCKET}";
-      # contoh: set policy public-read untuk bucket (opsional)
-      echo "Mengatur policy public untuk bucket (opsional)...";
-      mc policy set public myminio/"${MINIO_BUCKET}" || true;
-      echo "Done. Bucket '${MINIO_BUCKET}' siap.";
-      # berhenti agar container tidak terus berjalan
-      sleep 1;
-      '
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "⏳ Menunggu MinIO siap..."
+        sleep 2
+        
+        echo "🔧 Mengonfigurasi mc alias..."
+        mc alias set myminio http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" --api S3v4
+        
+        echo "📦 Memeriksa bucket '$${MINIO_BUCKET}'..."
+        if mc ls myminio/$${MINIO_BUCKET} >/dev/null 2>&1; then
+          echo "✅ Bucket '$${MINIO_BUCKET}' sudah ada"
+        else
+          echo "🆕 Membuat bucket '$${MINIO_BUCKET}'..."
+          mc mb myminio/$${MINIO_BUCKET}
+          echo "✅ Bucket '$${MINIO_BUCKET}' berhasil dibuat"
+        fi
+        
+        echo "🔓 Mengatur policy public untuk bucket..."
+        mc policy set public myminio/$${MINIO_BUCKET}
+        
+        echo "✨ Inisialisasi MinIO selesai!"
     networks:
       - default
-    # jangan restart; kita jalankan sekali
     restart: "no"
 
   ####################################################################################################

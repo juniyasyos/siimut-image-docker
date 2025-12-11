@@ -39,8 +39,8 @@ services:
     image: caddy:2-alpine
     container_name: ${STACK_NAME:-multi}-web
     ports:
-      - "8088:8088"
-      - "7000:7000"
+      - "${SIIMUT_PORT:-8088}:8088"
+      - "${IAM_PORT:-7000}:7000"
       # - "443:443" # TLS support for production
     volumes:
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -92,6 +92,12 @@ services:
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/public-shared-siimut
       DB_HOST: database-service
+      # SSO Configuration - Override from compose
+      USE_SSO: "true"
+      IAM_ENABLED: "true"
+      IAM_HOST: "http://${HOST_IP:-192.168.1.9}:7000"
+      IAM_BASE_URL: "http://${HOST_IP:-192.168.1.9}:7000"
+      APP_URL: "http://${HOST_IP:-192.168.1.9}:8088"
     volumes:
       # Only persistent data, NO CODE mounts
       - siimut_storage:/var/www/siimut/storage
@@ -181,6 +187,9 @@ services:
       APP_WORKDIR: /var/www/iam
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
+      # IAM Server Configuration - Override from compose
+      APP_URL: "http://${HOST_IP:-192.168.1.9}:7000"
+      SSO_ALLOWED_CLIENTS: "siimut:http://${HOST_IP:-192.168.1.9}:8088/sso/callback"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage

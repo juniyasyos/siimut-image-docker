@@ -148,12 +148,23 @@ RUN set -eux; \
 # Copy app from deps stage
 COPY --from=deps --chown=www:www /app ${APP_WORKDIR}
 
-# Permissions
+# Permissions & directory setup
 RUN set -eux; \
-    if [ -d storage ]; then \
-      chown -R www:www storage bootstrap/cache; \
-      chmod -R ug+rwX storage bootstrap/cache; \
-    fi; \
+    # Create all Laravel cache directories
+    mkdir -p storage/framework/cache/data \
+             storage/framework/sessions \
+             storage/framework/views \
+             storage/framework/testing \
+             storage/logs \
+             storage/app/public \
+             bootstrap/cache; \
+    # Set ownership
+    chown -R www:www storage bootstrap/cache; \
+    # Set permissions (recursive write for cache dirs)
+    chmod -R ug+rwX storage bootstrap/cache; \
+    # Ensure views directory is fully writable
+    chmod -R 775 storage/framework/views; \
+    # Public assets
     if [ -d public ]; then \
       chmod -R 755 public; \
     fi

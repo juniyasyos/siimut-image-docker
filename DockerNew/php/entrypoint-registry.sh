@@ -100,10 +100,29 @@ fi
 
 # Laravel cache warming (run as www user)
 echo "⚙️  Warming Laravel caches..."
+
+# Clear all caches first to prevent stale/corrupted cache issues
+echo "🧹 Clearing all caches..."
+su-exec www php artisan cache:clear    >/dev/null 2>&1 || true
+su-exec www php artisan config:clear   >/dev/null 2>&1 || true
+su-exec www php artisan route:clear    >/dev/null 2>&1 || true
+su-exec www php artisan view:clear     >/dev/null 2>&1 || true
+su-exec www php artisan event:clear    >/dev/null 2>&1 || true
+
+# Rebuild caches
+echo "♻️  Rebuilding caches..."
 su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
 su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
 su-exec www php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
 su-exec www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
+
+# Verify critical directories are writable
+echo "🔍 Verifying cache directories..."
+for dir in storage/framework/views storage/framework/cache bootstrap/cache; do
+  if [ -d "$dir" ] && [ ! -w "$dir" ]; then
+    echo "⚠️ Warning: $dir is not writable"
+  fi
+done
 
 echo "✅ IAM App ready at: $(date)"
 

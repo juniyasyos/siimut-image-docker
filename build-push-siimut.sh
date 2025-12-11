@@ -10,10 +10,23 @@ if [ -f "env/.env.siimut" ]; then
     source <(grep -E '^(STACK_NAME|APP_DIR)=' env/.env.siimut | sed 's/^/export /')
 fi
 
+# Read version from VERSION file or use parameter
+if [ -f "VERSION" ]; then
+    DEFAULT_VERSION=$(cat VERSION)
+else
+    DEFAULT_VERSION="latest"
+fi
+
+# Allow version override via parameter
+if [ -n "$1" ]; then
+    VERSION="$1"
+else
+    VERSION="${VERSION:-$DEFAULT_VERSION}"
+fi
+
 # Configuration
 REGISTRY="${REGISTRY:-juniyasyos}"  # Docker Hub username
 IMAGE_NAME="${IMAGE_NAME:-${STACK_NAME:-siimut}-app}"
-VERSION="${VERSION:-latest}"
 APP_DIR="${APP_DIR:-siimut}"
 
 # Full image tag
@@ -38,6 +51,7 @@ docker build \
   --build-arg APP_NAME="SIIMUT Application" \
   --build-arg APP_ENV=production \
   -t "${IMAGE_TAG}" \
+  -t "${REGISTRY}/${IMAGE_NAME}:latest" \
   -t "${REGISTRY}/${IMAGE_NAME}:$(date +%Y%m%d-%H%M%S)" \
   .
 
@@ -52,25 +66,27 @@ fi
 echo ""
 echo "🚀 Pushing to registry: ${REGISTRY}..."
 docker push "${IMAGE_TAG}"
+docker push "${REGISTRY}/${IMAGE_NAME}:latest"
 
 if [ $? -eq 0 ]; then
   echo "✅ Push successful!"
   echo ""
   echo "======================================"
-  echo "✨ Image is ready to deploy:"
+  echo "✨ Images pushed:"
   echo "   ${IMAGE_TAG}"
+  echo "   ${REGISTRY}/${IMAGE_NAME}:latest"
   echo "======================================"
 else
   echo "❌ Push failed!"
   exit 1
 fi
 
-# Optional: Also push timestamped version
-TIMESTAMP_TAG="${REGISTRY}/${IMAGE_NAME}:$(date +%Y%m%d-%H%M%S)"
-echo ""
-echo "🔖 Also pushed as: ${TIMESTAMP_TAG}"
-
 echo ""
 echo "💡 Deploy with:"
 echo "   docker pull ${IMAGE_TAG}"
 echo "   docker-compose -f docker-compose.siimut-registry.yml up -d"
+echo ""
+echo "💡 To build next version:"
+echo "   1. Edit VERSION file (e.g., 2.0.1)"
+echo "   2. Run: ./build-push-siimut.sh"
+echo "   Or override: ./build-push-siimut.sh 2.1.0"

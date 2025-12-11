@@ -85,6 +85,12 @@ if [ -d storage ]; then
   mkdir -p storage/logs storage/app/public
   mkdir -p bootstrap/cache
   
+  # Clear stale cache files yang mungkin corrupt atau orphaned
+  echo "🧹 Cleaning stale cache files..."
+  rm -rf storage/framework/views/*.php 2>/dev/null || true
+  rm -rf storage/framework/cache/data/* 2>/dev/null || true
+  rm -rf bootstrap/cache/*.php 2>/dev/null || true
+  
   # Set ownership dan permission
   chown -R www:www storage bootstrap/cache 2>/dev/null || true
   chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true

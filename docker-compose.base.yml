@@ -54,9 +54,10 @@ services:
           echo "✅ Bucket '$${MINIO_BUCKET}' berhasil dibuat"
         fi
         
-        echo "🔓 Mengatur policy public untuk bucket..."
-        mc policy set public myminio/$${MINIO_BUCKET}
+        echo "🔓 Mengatur policy PUBLIC (download) untuk bucket..."
+        mc anonymous set download myminio/$${MINIO_BUCKET}
         
+        echo "✅ Bucket '$${MINIO_BUCKET}' dapat diakses publik"
         echo "✨ Inisialisasi MinIO selesai!"
     networks:
       - default

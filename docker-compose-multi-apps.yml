@@ -98,6 +98,8 @@ services:
       IAM_HOST: "http://${HOST_IP:-192.168.1.9}:7000"
       IAM_BASE_URL: "http://${HOST_IP:-192.168.1.9}:7000"
       APP_URL: "http://${HOST_IP:-192.168.1.9}:8088"
+      IAM_LOGIN_ROUTE: "/login"
+      IAM_CALLBACK_ROUTE: "/callback"
     volumes:
       # Only persistent data, NO CODE mounts
       - siimut_storage:/var/www/siimut/storage

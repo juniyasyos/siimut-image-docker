@@ -1,36 +1,5 @@
 name: service-app
 
-####################################################################################################
-# Base APP PHP Application - Unified with Supervisor (Hospital Single-App)
-####################################################################################################
-x-app-base: &app-base
-  working_dir: /var/www/html
-  env_file:
-    - .env.production # bisa diganti per-app nanti
-  environment:
-    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "${PHP_OPCACHE_VALIDATE_TIMESTAMPS:-0}"
-    COMPOSER_CACHE_DIR: /tmp/composer
-    APP_ENV: ${APP_ENV:-production}
-    RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
-  depends_on:
-    db:
-      condition: service_healthy
-  restart: unless-stopped
-  deploy:
-    resources:
-      limits:
-        memory: 1.5G
-        cpus: "1.5"
-      reservations:
-        memory: 768M
-        cpus: "0.75"
-  healthcheck:
-    test: ["CMD-SHELL", "php -v >/dev/null 2>&1"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
-    start_period: 60s
-
 services:
   ####################################################################################################
   # Caddy Web Server - Production Optimized
@@ -81,7 +50,7 @@ services:
   # Apps SIIMUT
   ####################################################################################################
   app-siimut:
-    image: ${REGISTRY:-juniyasyos}/siimut-app:2.0.0
+    image: ${REGISTRY:-juniyasyos}/siimut-app:1.0.0
     container_name: siimut-app
     working_dir: /var/www/siimut
     env_file:
@@ -126,7 +95,7 @@ services:
           - siimut-app
 
   queue-siimut:
-    image: ${REGISTRY:-juniyasyos}/siimut-app:2.0.0
+    image: ${REGISTRY:-juniyasyos}/siimut-app:1.0.0
     container_name: siimut-queue
     working_dir: /var/www/siimut
     env_file:
@@ -150,7 +119,7 @@ services:
           cpus: "0.25"
 
   scheduler-siimut:
-    image: ${REGISTRY:-juniyasyos}/siimut-app:2.0.0
+    image: ${REGISTRY:-juniyasyos}/siimut-app:1.0.0
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
     env_file:

@@ -44,8 +44,9 @@ echo "======================================"
 
 # Build the image
 echo ""
-echo "📦 Building Docker image..."
+echo "📦 Building Docker image (no cache to ensure fresh source)..."
 docker build \
+  --no-cache \
   -f DockerNew/php/Dockerfile.siimut-registry \
   --build-arg APP_DIR="${APP_DIR}" \
   --build-arg APP_NAME="SIIMUT Application" \

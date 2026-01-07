@@ -64,10 +64,10 @@ services:
     restart: "no"
 
   ####################################################################################################
-  # DATABASE (MariaDB) - Production Optimized
+  # DATABASE (MySQL) - Production Optimized
   ####################################################################################################
   db:
-    image: mariadb:10.11
+    image: mysql:8.0
     container_name: database-service
     restart: unless-stopped
     # ports:
@@ -82,9 +82,13 @@ services:
       - ./env/.env.db
     environment:
       # Hanya yang penting saja, database & user akan dibuat dari script SQL
-      # MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MARIADB_ROOT_PASSWORD: rootpass123
+      MYSQL_ROOT_PASSWORD: rootpass123
       MYSQL_RANDOM_ROOT_PASSWORD: "no"
+      # MySQL 8.0 compatibility settings
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+      # Disable strict mode untuk kompatibilitas dengan aplikasi legacy
+      MYSQL_INIT_CONNECT: "SET SESSION sql_mode=''"
     deploy:
       resources:
         limits:
@@ -94,7 +98,7 @@ services:
           memory: 256M
           cpus: "0.5"
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpass123", "--silent"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -117,6 +121,8 @@ services:
       PMA_ABSOLUTE_URI: http://localhost:${PMA_PORT:-8888}/
       # Security
       PMA_BLOWFISH_SECRET: password
+      # MySQL specific settings
+      MYSQL_ROOT_PASSWORD: rootpass123
       # Enhanced limits for production data
       UPLOAD_LIMIT: 1024M
       MEMORY_LIMIT: 1024M

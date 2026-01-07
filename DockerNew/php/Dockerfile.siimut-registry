@@ -54,15 +54,43 @@ ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
 
 WORKDIR /build
 
-# Copy entire context
+# Copy composer.json first for better layer caching
+COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* /tmp/composer-files/
+
+# Pre-install dependencies (this layer can be cached if composer files don't change)
+RUN set -eux; \
+    mkdir -p /app; \
+    if [ -f /tmp/composer-files/composer.json ]; then \
+      echo ">> Pre-installing composer dependencies..."; \
+      cd /tmp/composer-files; \
+      composer install \
+        --no-dev \
+        --prefer-dist \
+        --no-interaction \
+        --no-progress \
+        --no-scripts \
+        --no-autoloader; \
+      cp -r vendor/ /app/; \
+    fi; \
+    rm -rf /tmp/composer-files
+
+# Add build timestamp to force cache invalidation
+ARG BUILD_TIMESTAMP
+RUN echo "Build timestamp: ${BUILD_TIMESTAMP}" > /tmp/build.info
+
+# Copy entire source code (this layer will always be rebuilt due to timestamp)
 COPY . .
 
-# Extract app from monorepo structure
+# Extract and finalize app from monorepo structure  
 RUN set -eux; \
     echo ">> Building SIIMUT application from APP_DIR='${APP_DIR}'"; \
+    echo ">> Build info: $(cat /tmp/build.info)"; \
     if [ -d "site/${APP_DIR}" ]; then \
       echo ">> Using app from site/${APP_DIR}"; \
       cp -r "site/${APP_DIR}/." "/app/"; \
+      # Show recent changes to verify source is up to date
+      echo ">> Recent changes in site/${APP_DIR}:"; \
+      find "site/${APP_DIR}" -type f -newer /tmp/build.info -ls 2>/dev/null | head -10 || true; \
     elif [ -d "${APP_DIR}" ]; then \
       echo ">> Using app from ${APP_DIR}"; \
       cp -r "${APP_DIR}/." "/app/"; \
@@ -72,18 +100,20 @@ RUN set -eux; \
     fi; \
     cd /app; \
     \
+    # Finalize composer setup
     if [ -f composer.json ]; then \
-      echo ">> Installing composer dependencies..."; \
-      composer install \
-        --no-dev \
-        --prefer-dist \
-        --no-interaction \
-        --no-progress \
-        --optimize-autoloader \
-        --classmap-authoritative; \
+      echo ">> Finalizing composer setup..."; \
+      composer dump-autoload --optimize --classmap-authoritative; \
     else \
       echo ">> No composer.json found"; \
     fi; \
+    \
+    # Show app structure to verify
+    echo ">> App structure:"; \
+    ls -la /app/ | head -10; \
+    echo ">> App size: $(du -sh /app/)"; \
+    \
+    # Cleanup
     rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
 
 # =========================

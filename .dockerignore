@@ -1,0 +1,58 @@
+# Development files
+.git
+.gitignore
+README*.md
+*.md
+
+# Node modules dan cache
+**/node_modules
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Laravel storage dan cache (kecuali app/public)
+**/storage/logs/*
+**/storage/framework/cache/data/*
+**/storage/framework/sessions/*
+**/storage/framework/views/*
+**/bootstrap/cache/*
+!**/storage/app/
+!**/bootstrap/cache/.gitkeep
+
+# Docker files
+**/.dockerignore
+**/docker-compose*.yml
+**/Dockerfile*
+
+# Environment files
+**/.env*
+!**/.env.example
+
+# IDE files
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+
+# OS files
+**/.DS_Store
+**/Thumbs.db
+
+# Test files
+**/tests/
+**/phpunit.xml
+
+# Build artifacts
+**/dist/
+**/build/
+
+# Logs
+**/*.log
+
+# Temporary files  
+**/tmp/
+**/temp/
+
+# Don't ignore the site directory - this is our source code
+!site/
+!site/**

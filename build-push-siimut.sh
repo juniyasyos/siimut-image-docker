@@ -42,22 +42,69 @@ echo "App Dir: ${APP_DIR}"
 echo "Full Tag: ${IMAGE_TAG}"
 echo "======================================"
 
+# Pre-build validation
+echo ""
+echo "🔍 Pre-build validation..."
+if [ ! -d "site/${APP_DIR}" ]; then
+  echo "❌ Error: Directory site/${APP_DIR} does not exist!"
+  exit 1
+fi
+
+# Show recent changes in source directory
+echo "📝 Recent changes in site/${APP_DIR}:"
+find "site/${APP_DIR}" -type f -mtime -1 -ls 2>/dev/null | head -5 || echo "  No recent changes (within 24h)"
+
+# Build timestamp for cache invalidation
+BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_DATE_TAG=$(date +%Y%m%d-%H%M%S)
+
 # Build the image
 echo ""
 echo "📦 Building Docker image (no cache to ensure fresh source)..."
+echo "🕒 Build timestamp: ${BUILD_TIMESTAMP}"
 docker build \
   --no-cache \
   -f DockerNew/php/Dockerfile.siimut-registry \
   --build-arg APP_DIR="${APP_DIR}" \
   --build-arg APP_NAME="SIIMUT Application" \
   --build-arg APP_ENV=production \
+  --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
   -t "${IMAGE_TAG}" \
   -t "${REGISTRY}/${IMAGE_NAME}:latest" \
-  -t "${REGISTRY}/${IMAGE_NAME}:$(date +%Y%m%d-%H%M%S)" \
+  -t "${REGISTRY}/${IMAGE_NAME}:${BUILD_DATE_TAG}" \
   .
 
 if [ $? -eq 0 ]; then
   echo "✅ Build successful!"
+  
+  # Post-build validation - check if source files are in the image
+  echo ""
+  echo "🔍 Post-build validation..."
+  echo "📋 Checking if Laravel app files are in the image..."
+  
+  # Create a temporary container to inspect contents
+  TEMP_CONTAINER=$(docker create "${IMAGE_TAG}")
+  
+  # Check for key Laravel files
+  docker cp "${TEMP_CONTAINER}:/var/www/siimut/artisan" "/tmp/artisan.check" 2>/dev/null && echo "✅ artisan found" || echo "❌ artisan missing"
+  docker cp "${TEMP_CONTAINER}:/var/www/siimut/composer.json" "/tmp/composer.check" 2>/dev/null && echo "✅ composer.json found" || echo "❌ composer.json missing"
+  docker cp "${TEMP_CONTAINER}:/var/www/siimut/app" "/tmp/app.check" 2>/dev/null && echo "✅ app/ directory found" || echo "❌ app/ directory missing"
+  
+  # Check file timestamps in container vs source
+  if docker cp "${TEMP_CONTAINER}:/var/www/siimut/config/app.php" "/tmp/app-config.check" 2>/dev/null; then
+    SOURCE_TIME=$(stat -c %Y "site/${APP_DIR}/config/app.php" 2>/dev/null || echo "0")
+    CONTAINER_TIME=$(stat -c %Y "/tmp/app-config.check" 2>/dev/null || echo "0")
+    if [ "$CONTAINER_TIME" -ge "$SOURCE_TIME" ]; then
+      echo "✅ app.php timestamp looks current"
+    else
+      echo "⚠️  app.php timestamp might be stale"
+    fi
+  fi
+  
+  # Cleanup
+  docker rm "${TEMP_CONTAINER}" >/dev/null 2>&1
+  rm -f /tmp/*.check 2>/dev/null
+  
 else
   echo "❌ Build failed!"
   exit 1
@@ -68,6 +115,7 @@ echo ""
 echo "🚀 Pushing to registry: ${REGISTRY}..."
 docker push "${IMAGE_TAG}"
 docker push "${REGISTRY}/${IMAGE_NAME}:latest"
+docker push "${REGISTRY}/${IMAGE_NAME}:${BUILD_DATE_TAG}"
 
 if [ $? -eq 0 ]; then
   echo "✅ Push successful!"
@@ -76,6 +124,7 @@ if [ $? -eq 0 ]; then
   echo "✨ Images pushed:"
   echo "   ${IMAGE_TAG}"
   echo "   ${REGISTRY}/${IMAGE_NAME}:latest"
+  echo "   ${REGISTRY}/${IMAGE_NAME}:${BUILD_DATE_TAG}"
   echo "======================================"
 else
   echo "❌ Push failed!"

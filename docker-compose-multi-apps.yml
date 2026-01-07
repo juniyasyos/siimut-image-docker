@@ -29,10 +29,10 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: "0.5"
+          cpus: "0.2"
         reservations:
           memory: 128M
-          cpus: "0.25"
+          cpus: "0.1"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8088/ || exit 1"]
       interval: 30s
@@ -171,10 +171,10 @@ services:
       resources:
         limits:
           memory: 1.5G
-          cpus: "1.5"
+          cpus: "0.7"
         reservations:
           memory: 768M
-          cpus: "0.75"
+          cpus: "0.35"
     healthcheck:
       test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
       interval: 30s

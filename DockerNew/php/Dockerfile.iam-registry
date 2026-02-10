@@ -19,37 +19,28 @@ RUN echo "Node assets stage - npm build handled in PHP deps stage"
 FROM php:8.4-fpm-alpine AS base
 
 ARG UID=1000
-ARG GID=1000
+ARG GID=1000w
 ARG TZ=Asia/Jakarta
 ARG APP_NAME="IAM Server"
 
 # Sistem & build deps (include Node.js for npm build after composer)
-RUN set -eux; apk add --no-cache \
+RUN apk add --no-cache \
       tzdata bash shadow ca-certificates unzip su-exec \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
       linux-headers curl openssl \
       nodejs npm \
-      $PHPIZE_DEPS
-
-# Configure PHP extensions
-RUN set -eux; \
-  cp /usr/share/zoneinfo/${TZ} /etc/localtime; \
-  echo "${TZ}" > /etc/timezone; \
-  docker-php-ext-configure intl; \
-  docker-php-ext-configure gd --with-freetype --with-jpeg; \
-  docker-php-ext-install -j"$(nproc)" intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd bcmath exif pcntl sockets opcache
-
-# APCu + igbinary
-RUN set -eux; \
-  pecl install apcu igbinary; \
-  docker-php-ext-enable apcu igbinary
-
-# Cleanup
-RUN set -eux; \
-  apk del --no-network $PHPIZE_DEPS linux-headers; \
-  rm -rf /var/cache/apk/* /tmp/*
+      $PHPIZE_DEPS \
+  && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
+  && echo "${TZ}" > /etc/timezone \
+  && docker-php-ext-configure intl \
+  && docker-php-ext-configure gd --with-freetype --with-jpeg \
+  && docker-php-ext-install -j"$(nproc)" intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd bcmath exif pcntl sockets opcache \
+  && pecl install apcu igbinary \
+  && docker-php-ext-enable apcu igbinary \
+  && apk del --no-network $PHPIZE_DEPS linux-headers \
+  && rm -rf /var/cache/apk/* /tmp/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -129,31 +120,22 @@ ARG GID=1000
 ARG TZ=Asia/Jakarta
 
 # Install only runtime deps (no npm)
-RUN set -eux; apk add --no-cache \
+RUN apk add --no-cache \
       tzdata bash shadow ca-certificates unzip su-exec \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
       curl openssl \
-      $PHPIZE_DEPS
-
-# Configure PHP extensions
-RUN set -eux; \
-  cp /usr/share/zoneinfo/${TZ} /etc/localtime; \
-  echo "${TZ}" > /etc/timezone; \
-  docker-php-ext-configure intl; \
-  docker-php-ext-configure gd --with-freetype --with-jpeg; \
-  docker-php-ext-install -j"$(nproc)" intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd bcmath exif pcntl sockets opcache
-
-# APCu + igbinary
-RUN set -eux; \
-  pecl install apcu igbinary; \
-  docker-php-ext-enable apcu igbinary
-
-# Cleanup
-RUN set -eux; \
-  apk del --no-network $PHPIZE_DEPS; \
-  rm -rf /var/cache/apk/* /tmp/*
+      $PHPIZE_DEPS \
+  && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
+  && echo "${TZ}" > /etc/timezone \
+  && docker-php-ext-configure intl \
+  && docker-php-ext-configure gd --with-freetype --with-jpeg \
+  && docker-php-ext-install -j"$(nproc)" intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd bcmath exif pcntl sockets opcache \
+  && pecl install apcu igbinary \
+  && docker-php-ext-enable apcu igbinary \
+  && apk del --no-network $PHPIZE_DEPS \
+  && rm -rf /var/cache/apk/* /tmp/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

@@ -29,6 +29,17 @@ REGISTRY="${REGISTRY:-juniyasyos}"  # Docker Hub username
 IMAGE_NAME="${IMAGE_NAME:-${STACK_NAME:-siimut}-app}"
 APP_DIR="${APP_DIR:-siimut}"
 
+# Pull latest code from Git
+echo ""
+echo "🔄 Pulling latest code from Git repository..."
+cd "site/${APP_DIR}"
+if git pull origin main; then
+    echo "✅ Git pull successful!"
+else
+    echo "❌ Git pull failed! Continuing with current code..."
+fi
+cd "../../"
+
 # Full image tag
 IMAGE_TAG="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
 

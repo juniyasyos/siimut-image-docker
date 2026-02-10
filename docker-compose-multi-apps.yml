@@ -8,8 +8,8 @@ services:
     image: caddy:2-alpine
     container_name: ${STACK_NAME:-multi}-web
     ports:
-      - "${SIIMUT_PORT:-8088}:8088"
-      - "${IAM_PORT:-7000}:7000"
+      - "${SIIMUT_PORT:-8000}:8000"
+      - "${IAM_PORT:-8100}:8100"
       # - "443:443" # TLS support for production
     volumes:
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -19,8 +19,8 @@ services:
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     depends_on:
-      # app-siimut:
-      #   condition: service_healthy
+      app-siimut:
+        condition: service_healthy
       app-iam:
         condition: service_healthy
     restart: unless-stopped
@@ -49,50 +49,56 @@ services:
   ####################################################################################################
   # Apps SIIMUT
   ####################################################################################################
-  # app-siimut:
-  #   image: ${REGISTRY:-juniyasyos}/siimut-app:1.0.0
-  #   container_name: siimut-app
-  #   working_dir: /var/www/siimut
-  #   env_file:
-  #     - ./env/.env.siimut
-  #   environment:
-  #     APP_ENV: production
-  #     PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
-  #     APP_WORKDIR: /var/www/siimut
-  #     PUBLIC_VOLUME: /var/www/public-shared-siimut
-  #     DB_HOST: database-service
-  #     # SSO Configuration - Override from compose
-  #     USE_SSO: "true"
-  #     IAM_ENABLED: "true"
-  #     IAM_HOST: "http://${HOST_IP:-192.168.1.9}:7000"
-  #     IAM_BASE_URL: "http://${HOST_IP:-192.168.1.9}:7000"
-  #     APP_URL: "http://${HOST_IP:-192.168.1.9}:8088"
-  #     IAM_LOGIN_ROUTE: "/login"
-  #     IAM_CALLBACK_ROUTE: "/callback"
-  #   volumes:
-  #     # Only persistent data, NO CODE mounts
-  #     - siimut_storage:/var/www/siimut/storage
-  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-  #     - siimut_public:/var/www/public-shared-siimut  # Shared with Caddy
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 1.5G
-  #         cpus: "1.5"
-  #       reservations:
-  #         memory: 768M
-  #         cpus: "0.75"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s
-  #   networks:
-  #     default:
-  #       aliases:
-  #         - siimut-app
+  app-siimut:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.siimut-registry
+      args:
+        APP_DIR: siimut
+        APP_NAME: "SIIMUT Application"
+        APP_ENV: production
+    container_name: siimut-app
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut
+    environment:
+      APP_ENV: production
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+      APP_WORKDIR: /var/www/siimut
+      PUBLIC_VOLUME: /var/www/public-shared-siimut
+      DB_HOST: database-service
+      # SSO Configuration - Override from compose
+      USE_SSO: "true"
+      IAM_ENABLED: "true"
+      IAM_HOST: "http://${HOST_IP:-192.168.1.9}:8100"
+      IAM_BASE_URL: "http://${HOST_IP:-192.168.1.9}:8100"
+      APP_URL: "http://${HOST_IP:-192.168.1.9}:8000"
+      IAM_LOGIN_ROUTE: "/login"
+      IAM_CALLBACK_ROUTE: "/callback"
+    volumes:
+      # Only persistent data, NO CODE mounts
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - siimut_public:/var/www/public-shared-siimut  # Shared with Caddy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      default:
+        aliases:
+          - siimut-app
 
   # queue-siimut:
   #   image: ${REGISTRY:-juniyasyos}/siimut-app:1.0.0
@@ -147,7 +153,13 @@ services:
   # Apps IAM
   ####################################################################################################
   app-iam:
-    image: ${REGISTRY:-juniyasyos}/iam-server:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.iam-registry
+      args:
+        APP_DIR: iam-server
+        APP_NAME: "IAM Server"
+        APP_ENV: production
     container_name: iam-app
     working_dir: /var/www/iam
     env_file:
@@ -159,8 +171,8 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://${HOST_IP:-192.168.1.9}:7000"
-      SSO_ALLOWED_CLIENTS: "siimut:http://${HOST_IP:-192.168.1.9}:8088/sso/callback"
+      APP_URL: "http://${HOST_IP:-192.168.1.9}:8100"
+      SSO_ALLOWED_CLIENTS: "siimut:http://${HOST_IP:-192.168.1.9}:8000/sso/callback"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage

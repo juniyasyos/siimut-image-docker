@@ -13,8 +13,8 @@ services:
       # - "443:443" # TLS support for production
     volumes:
       - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - siimut_public:/var/www/siimut/public:ro  # Public assets from SIIMUT
-      - iam_public:/var/www/iam/public:ro        # Public assets from IAM
+      - siimut_public:/var/www/public-shared-siimut:ro  # Public assets from SIIMUT
+      - iam_public:/var/www/public-shared-iam:ro        # Public assets from IAM
       - caddy_data:/data
       - caddy_config:/config
       - caddy_logs:/var/log/caddy

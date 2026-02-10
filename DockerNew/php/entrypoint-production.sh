@@ -82,10 +82,23 @@ fi
 
 # Copy public files to shared volume untuk Caddy serve
 if [ -n "$PUBLIC_VOLUME" ] && [ -d "$PUBLIC_VOLUME" ]; then
-  echo "📦 Copying public files to shared volume: $PUBLIC_VOLUME"
+  echo "📦 Building and copying public files to shared volume: $PUBLIC_VOLUME"
+  
+  # Build assets jika ada package.json
+  if [ -f package.json ]; then
+    echo "🏗️  Running npm install..."
+    npm install >/dev/null 2>&1 || echo "⚠️ npm install skipped or failed"
+    
+    echo "📦 Running npm run build..."
+    npm run build >/dev/null 2>&1 || echo "⚠️ npm run build failed (continuing...)"
+  fi
+  
+  # Copy public files
   if [ -d public ]; then
+    echo "📋 Copying public files..."
     cp -r public/* "$PUBLIC_VOLUME/" 2>/dev/null || echo "⚠️ Failed to copy public files"
     chown -R www:www "$PUBLIC_VOLUME" 2>/dev/null || true
+    echo "✅ Public files synced to Caddy"
   fi
 else
   echo "⚠️ PUBLIC_VOLUME not set or doesn't exist, skipping public files sync"

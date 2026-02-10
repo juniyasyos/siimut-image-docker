@@ -7,7 +7,7 @@
 # SIIMUT — :8000
 # =========================
 :8000 {
-    root * /var/www/siimut/public
+    root * /var/www/public-shared-siimut
 
     header {
         X-Content-Type-Options "nosniff"
@@ -68,7 +68,7 @@
 # IAM — :8100
 # =========================
 :8100 {
-    root * /var/www/iam/public
+    root * /var/www/public-shared-iam
 
     header {
         X-Content-Type-Options "nosniff"

@@ -70,9 +70,9 @@ services:
       # SSO Configuration - Override from compose
       USE_SSO: "true"
       IAM_ENABLED: "true"
-      IAM_HOST: "http://${HOST_IP:-192.168.1.9}:8100"
-      IAM_BASE_URL: "http://${HOST_IP:-192.168.1.9}:8100"
-      APP_URL: "http://${HOST_IP:-192.168.1.9}:8000"
+      IAM_HOST: "http://192.168.1.9:8100"
+      IAM_BASE_URL: "http://192.168.1.9:8100"
+      APP_URL: "http://192.168.1.9:8000"
       IAM_LOGIN_ROUTE: "/login"
       IAM_CALLBACK_ROUTE: "/callback"
     volumes:
@@ -183,8 +183,8 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://${HOST_IP:-192.168.1.9}:8100"
-      SSO_ALLOWED_CLIENTS: "siimut:http://${HOST_IP:-192.168.1.9}:8000/sso/callback"
+      APP_URL: "http://192.168.1.9:8100"
+      SSO_ALLOWED_CLIENTS: "siimut:http://192.168.1.9:8000/sso/callback"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage

@@ -13,18 +13,18 @@ ARG APP_DIR=iam-server
 
 WORKDIR /build
 
-# Copy app source
-COPY site/${APP_DIR}/package*.json ./
+# Copy app source only if exists
+COPY site/${APP_DIR}/package*.json* ./
 
-# Install dependencies
-RUN npm ci --prefer-offline --no-audit
-
-# Copy app code
-COPY site/${APP_DIR}/ ./
-
-# Build assets
-RUN npm run build && \
-    echo "✅ Frontend assets built successfully"
+# Install and build only if package.json exists
+RUN if [ -f package.json ]; then \
+      echo "📦 Installing npm dependencies..."; \
+      npm ci --prefer-offline --no-audit || npm install; \
+      npm run build && echo "✅ Frontend assets built"; \
+    else \
+      echo "⚠️  Skipping npm build - package.json not found"; \
+      mkdir -p /build/public/build; \
+    fi
 
 # =========================
 # Stage 2: PHP Base

@@ -80,6 +80,17 @@ if [ -d storage ]; then
   chmod -R ug+rwX storage bootstrap/cache || true
 fi
 
+# Copy public files to shared volume untuk Caddy serve
+if [ -n "$PUBLIC_VOLUME" ] && [ -d "$PUBLIC_VOLUME" ]; then
+  echo "📦 Copying public files to shared volume: $PUBLIC_VOLUME"
+  if [ -d public ]; then
+    cp -r public/* "$PUBLIC_VOLUME/" 2>/dev/null || echo "⚠️ Failed to copy public files"
+    chown -R www:www "$PUBLIC_VOLUME" 2>/dev/null || true
+  fi
+else
+  echo "⚠️ PUBLIC_VOLUME not set or doesn't exist, skipping public files sync"
+fi
+
 # Kalau tidak ada command yang dikasih dari Dockerfile/compose, pakai php-fpm -F
 if [ $# -eq 0 ]; then
     set -- php-fpm -F

@@ -1,6 +1,11 @@
 {
     auto_https off
     admin off
+    
+    mime .css text/css charset=utf-8
+    mime .js application/javascript charset=utf-8
+    mime .json application/json
+    mime .webmanifest application/manifest+json
 }
 
 # =========================
@@ -22,6 +27,20 @@
     @health path /health
     handle @health {
         respond "OK" 200
+    }
+
+    # Handle static assets dengan MIME type yang benar
+    @static {
+        path /build/*
+        path /assets/*
+        path *.css
+        path *.js
+        path *.jpg *.jpeg *.png *.gif *.svg *.webp
+        path *.woff *.woff2 *.ttf *.eot
+    }
+    handle @static {
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
     }
 
     php_fastcgi siimut-app:9000
@@ -56,6 +75,20 @@
     @health path /health
     handle @health {
         respond "OK" 200
+    }
+
+    # Handle static assets dengan MIME type yang benar
+    @static {
+        path /build/*
+        path /assets/*
+        path *.css
+        path *.js
+        path *.jpg *.jpeg *.png *.gif *.svg *.webp
+        path *.woff *.woff2 *.ttf *.eot
+    }
+    handle @static {
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
     }
 
     php_fastcgi iam-app:9000

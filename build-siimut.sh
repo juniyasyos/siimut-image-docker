@@ -2,7 +2,7 @@
 set -e
 
 # =========================
-# Build & Push SIIMUT Image to Registry
+# Build SIIMUT Image Locally (No Push)
 # =========================
 
 # Load configuration from .env.siimut if exists
@@ -25,7 +25,6 @@ else
 fi
 
 # Configuration
-REGISTRY="${REGISTRY:-juniyasyos}"  # Docker Hub username
 IMAGE_NAME="${IMAGE_NAME:-${STACK_NAME:-siimut}-app}"
 APP_DIR="${APP_DIR:-siimut}"
 
@@ -40,17 +39,16 @@ else
 fi
 cd "../../"
 
-# Full image tag
-IMAGE_TAG="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+# Full image tag (local only)
+IMAGE_TAG="${IMAGE_NAME}:${VERSION}"
 
 echo "======================================"
-echo "🏗️  Building SIIMUT Production Image"
+echo "🏗️  Building SIIMUT Production Image (Local)"
 echo "======================================"
-echo "Registry: ${REGISTRY}"
 echo "Image: ${IMAGE_NAME}"
 echo "Version: ${VERSION}"
 echo "App Dir: ${APP_DIR}"
-echo "Full Tag: ${IMAGE_TAG}"
+echo "Local Tag: ${IMAGE_TAG}"
 echo "======================================"
 
 # Pre-build validation
@@ -81,8 +79,8 @@ docker build \
   --build-arg APP_ENV=production \
   --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
   -t "${IMAGE_TAG}" \
-  -t "${REGISTRY}/${IMAGE_NAME}:latest" \
-  -t "${REGISTRY}/${IMAGE_NAME}:${BUILD_DATE_TAG}" \
+  -t "${IMAGE_NAME}:latest" \
+  -t "${IMAGE_NAME}:${BUILD_DATE_TAG}" \
   .
 
 if [ $? -eq 0 ]; then
@@ -121,33 +119,19 @@ else
   exit 1
 fi
 
-# Push to registry
 echo ""
-echo "🚀 Pushing to registry: ${REGISTRY}..."
-docker push "${IMAGE_TAG}"
-docker push "${REGISTRY}/${IMAGE_NAME}:latest"
-docker push "${REGISTRY}/${IMAGE_NAME}:${BUILD_DATE_TAG}"
-
-if [ $? -eq 0 ]; then
-  echo "✅ Push successful!"
-  echo ""
-  echo "======================================"
-  echo "✨ Images pushed:"
-  echo "   ${IMAGE_TAG}"
-  echo "   ${REGISTRY}/${IMAGE_NAME}:latest"
-  echo "   ${REGISTRY}/${IMAGE_NAME}:${BUILD_DATE_TAG}"
-  echo "======================================"
-else
-  echo "❌ Push failed!"
-  exit 1
-fi
+echo "======================================"
+echo "✨ Local images built:"
+echo "   ${IMAGE_TAG}"
+echo "   ${IMAGE_NAME}:latest"
+echo "   ${IMAGE_NAME}:${BUILD_DATE_TAG}"
+echo "======================================"
 
 echo ""
 echo "💡 Deploy with:"
-echo "   docker pull ${IMAGE_TAG}"
-echo "   docker-compose -f docker-compose.siimut-registry.yml up -d"
+echo "   docker-compose -f docker-compose-multi-apps.yml up --build -d"
 echo ""
 echo "💡 To build next version:"
 echo "   1. Edit VERSION file (e.g., 2.0.1)"
-echo "   2. Run: ./build-push-siimut.sh"
-echo "   Or override: ./build-push-siimut.sh 2.1.0"
+echo "   2. Run: ./build-siimut.sh"
+echo "   Or override: ./build-siimut.sh 2.1.0"

@@ -2,7 +2,7 @@
 set -e
 
 # =========================
-# Build & Push IAM Image to Registry
+# Build IAM Image Locally (No Push)
 # =========================
 
 # Load configuration from .env.iam if exists
@@ -11,7 +11,6 @@ if [ -f "env/.env.iam" ]; then
 fi
 
 # Configuration
-REGISTRY="${REGISTRY:-juniyasyos}"  # Docker Hub username
 IMAGE_NAME="${IMAGE_NAME:-${STACK_NAME:-iam}-server}"
 VERSION="${VERSION:-latest}"
 APP_DIR="${APP_DIR:-iam-server}"
@@ -27,17 +26,16 @@ else
 fi
 cd "../../"
 
-# Full image tag
-IMAGE_TAG="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+# Full image tag (local only)
+IMAGE_TAG="${IMAGE_NAME}:${VERSION}"
 
 echo "======================================"
-echo "🏗️  Building IAM Production Image"
+echo "🏗️  Building IAM Production Image (Local)"
 echo "======================================"
-echo "Registry: ${REGISTRY}"
 echo "Image: ${IMAGE_NAME}"
 echo "Version: ${VERSION}"
 echo "App Dir: ${APP_DIR}"
-echo "Full Tag: ${IMAGE_TAG}"
+echo "Local Tag: ${IMAGE_TAG}"
 echo "======================================"
 
 # Build the image
@@ -49,7 +47,7 @@ docker build \
   --build-arg APP_NAME="IAM Server" \
   --build-arg APP_ENV=production \
   -t "${IMAGE_TAG}" \
-  -t "${REGISTRY}/${IMAGE_NAME}:$(date +%Y%m%d-%H%M%S)" \
+  -t "${IMAGE_NAME}:$(date +%Y%m%d-%H%M%S)" \
   .
 
 if [ $? -eq 0 ]; then
@@ -59,29 +57,12 @@ else
   exit 1
 fi
 
-# Push to registry
 echo ""
-echo "🚀 Pushing to registry: ${REGISTRY}..."
-docker push "${IMAGE_TAG}"
-
-if [ $? -eq 0 ]; then
-  echo "✅ Push successful!"
-  echo ""
-  echo "======================================"
-  echo "✨ Image is ready to deploy:"
-  echo "   ${IMAGE_TAG}"
-  echo "======================================"
-else
-  echo "❌ Push failed!"
-  exit 1
-fi
-
-# Optional: Also push timestamped version
-TIMESTAMP_TAG="${REGISTRY}/${IMAGE_NAME}:$(date +%Y%m%d-%H%M%S)"
-echo ""
-echo "🔖 Also pushed as: ${TIMESTAMP_TAG}"
+echo "======================================"
+echo "✨ Local image built:"
+echo "   ${IMAGE_TAG}"
+echo "======================================"
 
 echo ""
 echo "💡 Deploy with:"
-echo "   docker pull ${IMAGE_TAG}"
-echo "   docker-compose -f docker-compose.registry.yml up -d"
+echo "   docker-compose -f docker-compose-multi-apps.yml up --build -d"

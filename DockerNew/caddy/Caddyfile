@@ -28,6 +28,7 @@
     @static {
         path /build/*
         path /assets/*
+        path /livewire/*
         path *.css
         path *.js
         path *.jpg *.jpeg *.png *.gif *.svg *.webp
@@ -89,6 +90,7 @@
     @static {
         path /build/*
         path /assets/*
+        path /livewire/*
         path *.css
         path *.js
         path *.jpg *.jpeg *.png *.gif *.svg *.webp

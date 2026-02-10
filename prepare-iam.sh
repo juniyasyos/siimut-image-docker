@@ -64,4 +64,9 @@ else
     echo "✅ .env file already exists."
 fi
 
-echo "� Next: Run ./build-iam.sh to build the image"
+# Note: Composer and npm build happens in Docker during build stage
+
+echo ""
+echo "✅ IAM preparation complete (git + .env ready)!"
+echo "💡 Next: Run ./build-iam.sh to build the Docker image"
+echo "   Composer install & npm build happen during Docker build"

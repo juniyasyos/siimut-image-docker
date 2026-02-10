@@ -98,6 +98,20 @@ if [ -d storage ]; then
   echo "✅ Permissions set"
 fi
 
+# Build Frontend Assets
+echo "📦 Building frontend assets..."
+if [ -f package.json ]; then
+  echo "  📋 Running npm install..."
+  npm install --no-save 2>&1 | tail -5
+  
+  echo "  🔨 Running npm run build..."
+  npm run build 2>&1 | tail -10
+  
+  echo "✅ Frontend build complete"
+else
+  echo "⚠️  package.json not found, skipping npm build"
+fi
+
 # Laravel cache warming (run as www user)
 echo "⚙️  Warming Laravel caches..."
 
@@ -115,6 +129,10 @@ su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:ca
 su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
 su-exec www php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
 su-exec www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
+
+# Run artisan optimize
+echo "⚡ Running artisan optimize..."
+su-exec www php artisan optimize       >/dev/null 2>&1 || echo "⚠️ artisan optimize failed"
 
 # Verify critical directories are writable
 echo "🔍 Verifying cache directories..."

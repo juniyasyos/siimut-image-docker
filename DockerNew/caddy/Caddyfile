@@ -33,18 +33,21 @@
         path *.jpg *.jpeg *.png *.gif *.svg *.webp
         path *.woff *.woff2 *.ttf *.eot
     }
+    @css path *.css
+    @js path *.js
+    
+    handle @css {
+        header Content-Type text/css
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+    handle @js {
+        header Content-Type application/javascript
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
     handle @static {
         header Cache-Control "public, max-age=31536000, immutable"
-        @css path *.css
-        handle @css {
-            header Content-Type text/css
-            file_server
-        }
-        @js path *.js
-        handle @js {
-            header Content-Type application/javascript
-            file_server
-        }
         file_server
     }
 
@@ -91,18 +94,21 @@
         path *.jpg *.jpeg *.png *.gif *.svg *.webp
         path *.woff *.woff2 *.ttf *.eot
     }
+    @css path *.css
+    @js path *.js
+    
+    handle @css {
+        header Content-Type text/css
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+    handle @js {
+        header Content-Type application/javascript
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
     handle @static {
         header Cache-Control "public, max-age=31536000, immutable"
-        @css path *.css
-        handle @css {
-            header Content-Type text/css
-            file_server
-        }
-        @js path *.js
-        handle @js {
-            header Content-Type application/javascript
-            file_server
-        }
         file_server
     }
 

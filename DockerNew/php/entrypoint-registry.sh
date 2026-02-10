@@ -98,18 +98,12 @@ if [ -d storage ]; then
   echo "✅ Permissions set"
 fi
 
-# Build Frontend Assets
-echo "📦 Building frontend assets..."
-if [ -f package.json ]; then
-  echo "  📋 Running npm install..."
-  npm install --no-save 2>&1 | tail -5
-  
-  echo "  🔨 Running npm run build..."
-  npm run build 2>&1 | tail -10
-  
-  echo "✅ Frontend build complete"
+# Build Frontend Assets - SKIP (already done in prepare script)
+echo "📦 Checking frontend assets..."
+if [ -d "public/build" ] || [ -d "public/dist" ]; then
+  echo "✅ Build assets found, skipping npm build"
 else
-  echo "⚠️  package.json not found, skipping npm build"
+  echo "⚠️  No build assets found in public/. If expected, ensure prepare script ran npm build"
 fi
 
 # Laravel cache warming (run as www user)

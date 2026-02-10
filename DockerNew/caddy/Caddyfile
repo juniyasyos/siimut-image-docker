@@ -1,11 +1,6 @@
 {
     auto_https off
     admin off
-    
-    mime .css text/css charset=utf-8
-    mime .js application/javascript charset=utf-8
-    mime .json application/json
-    mime .webmanifest application/manifest+json
 }
 
 # =========================
@@ -40,6 +35,16 @@
     }
     handle @static {
         header Cache-Control "public, max-age=31536000, immutable"
+        @css path *.css
+        handle @css {
+            header Content-Type text/css
+            file_server
+        }
+        @js path *.js
+        handle @js {
+            header Content-Type application/javascript
+            file_server
+        }
         file_server
     }
 
@@ -88,6 +93,16 @@
     }
     handle @static {
         header Cache-Control "public, max-age=31536000, immutable"
+        @css path *.css
+        handle @css {
+            header Content-Type text/css
+            file_server
+        }
+        @js path *.js
+        handle @js {
+            header Content-Type application/javascript
+            file_server
+        }
         file_server
     }
 

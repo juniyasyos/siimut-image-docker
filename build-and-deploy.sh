@@ -33,12 +33,12 @@ echo "✅ [3/5] Verifying repositories..."
 # Step 4: Build images with --no-cache
 echo ""
 echo "🐳 [4/5] Building Docker images (this may take a few minutes)..."
-docker-compose -f docker-compose-multi-apps.yml build --no-cache || { echo "❌ Docker build failed"; exit 1; }
+docker compose -f docker-compose-multi-apps.yml build --no-cache || { echo "❌ Docker build failed"; exit 1; }
 
 # Step 5: Deploy containers
 echo ""
 echo "🚀 [5/5] Deploying containers..."
-docker-compose -f docker-compose-multi-apps.yml up -d || { echo "❌ Docker compose up failed"; exit 1; }
+docker compose -f docker-compose-multi-apps.yml up -d || { echo "❌ Docker compose up failed"; exit 1; }
 
 echo ""
 echo "======================================"

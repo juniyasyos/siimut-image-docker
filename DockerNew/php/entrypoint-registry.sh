@@ -98,13 +98,8 @@ if [ -d storage ]; then
   echo "✅ Permissions set"
 fi
 
-# Build Frontend Assets - SKIP (already done in prepare script)
-echo "📦 Checking frontend assets..."
-if [ -d "public/build" ] || [ -d "public/dist" ]; then
-  echo "✅ Build assets found, skipping npm build"
-else
-  echo "⚠️  No build assets found in public/. If expected, ensure prepare script ran npm build"
-fi
+# Build Frontend Assets (REMOVED - assets already built in Dockerfile multi-stage)
+echo "📦 Frontend assets already built in image during docker build"
 
 # Laravel cache warming (run as www user)
 echo "⚙️  Warming Laravel caches..."

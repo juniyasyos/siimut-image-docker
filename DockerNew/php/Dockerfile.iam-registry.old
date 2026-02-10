@@ -1,48 +1,21 @@
 # =========================
-# Production SIIMUT Image - Multi-Stage Build
-# Stage 1: Node - Build Frontend Assets
-# Stage 2: PHP - Production App
-# =========================
-
-# =========================
-# Stage 1: Build Frontend Assets with Node
-# =========================
-FROM node:20-alpine AS assets
-
-ARG APP_DIR=siimut
-
-WORKDIR /build
-
-# Copy app source
-COPY site/${APP_DIR}/package*.json ./
-
-# Install dependencies
-RUN npm ci --prefer-offline --no-audit
-
-# Copy app code
-COPY site/${APP_DIR}/ ./
-
-# Build assets
-RUN npm run build && \
-    echo "✅ Frontend assets built successfully"
-
-# =========================
-# Stage 2: PHP Base (same as before)
+# Production IAM Image for Registry
+# Self-contained, no external mounts needed
 # =========================
 FROM php:8.4-fpm-alpine AS base
 
 ARG UID=1000
 ARG GID=1000
 ARG TZ=Asia/Jakarta
-ARG APP_NAME="SIIMUT Application"
+ARG APP_NAME="IAM Server"
 
-# Sistem & build deps (removed nodejs npm)
+# Sistem & build deps
 RUN apk add --no-cache \
       tzdata bash shadow ca-certificates unzip su-exec \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
-      linux-headers curl openssl \
+      linux-headers curl openssl nodejs npm \
       $PHPIZE_DEPS \
   && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
   && echo "${TZ}" > /etc/timezone \
@@ -70,63 +43,62 @@ RUN addgroup -g "${GID}" www \
 ENV APP_NAME=${APP_NAME}
 
 # =========================
-# Stage 3: Dependencies (PHP + Composer)
+# Stage 2: Dependencies
 # =========================
 FROM base AS deps
 
-ARG APP_DIR=siimut
-ARG BUILD_TIMESTAMP
+ARG APP_DIR=iam-server
 
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
     COMPOSER_MEMORY_LIMIT=-1
 
 WORKDIR /build
 
-# Copy composer files
-COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* /tmp/composer-files/
+# Copy entire context
+COPY . .
 
-# Install composer dependencies
+# Extract app from monorepo structure
 RUN set -eux; \
-    mkdir -p /app; \
-    if [ -f /tmp/composer-files/composer.json ]; then \
+    echo ">> Building IAM application from APP_DIR='${APP_DIR}'"; \
+    if [ -d "site/${APP_DIR}" ]; then \
+      echo ">> Using app from site/${APP_DIR}"; \
+      cp -r "site/${APP_DIR}/." "/app/"; \
+    elif [ -d "${APP_DIR}" ]; then \
+      echo ">> Using app from ${APP_DIR}"; \
+      cp -r "${APP_DIR}/." "/app/"; \
+    else \
+      echo ">> Using app from repository root"; \
+      cp -r . "/app/"; \
+    fi; \
+    cd /app; \
+    \
+    if [ -f composer.json ]; then \
       echo ">> Installing composer dependencies..."; \
-      cd /tmp/composer-files; \
       composer install \
         --no-dev \
         --prefer-dist \
         --no-interaction \
         --no-progress \
-        --no-scripts \
-        --no-autoloader; \
-      cp -r vendor/ /app/; \
+        --optimize-autoloader \
+        --classmap-authoritative; \
+    else \
+      echo ">> No composer.json found"; \
     fi; \
-    rm -rf /tmp/composer-files /root/.composer
-
-# Copy full app source
-COPY site/${APP_DIR}/ /app/
-
-# Finalize composer
-RUN set -eux; \
-    cd /app; \
-    if [ -f composer.json ]; then \
-      composer dump-autoload --optimize --classmap-authoritative; \
-    fi; \
-    rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build; \
-    echo ">> App ready: $(du -sh /app/)"
+    rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
 
 # =========================
-# Stage 4: Runtime (Final)
+# Stage 3: Runtime
 # =========================
 FROM base AS runtime
 
 ARG TZ=Asia/Jakarta
-ARG APP_NAME="SIIMUT Application"
+ARG APP_NAME="IAM Server"
 
 ENV APP_ENV=production \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
     PHP_MEMORY_LIMIT=512M \
     APP_NAME=${APP_NAME} \
-    APP_WORKDIR=/var/www/siimut
+    APP_WORKDIR=/var/www/iam
 
 WORKDIR ${APP_WORKDIR}
 
@@ -164,6 +136,7 @@ RUN set -eux; \
     echo "apc.enable_cli=0"; \
     echo "apc.ttl=3600"; \
   } > /usr/local/etc/php/conf.d/apcu.ini; \
+  # FPM tuning
   sed -ri 's|^;?pm =.*|pm = dynamic|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.max_children =.*|pm.max_children = 50|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.start_servers =.*|pm.start_servers = 8|' /usr/local/etc/php-fpm.d/www.conf; \
@@ -172,29 +145,20 @@ RUN set -eux; \
   sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests = 1000|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf
 
-# Copy app from deps stage WITH BUILT ASSETS
+# Copy app from deps stage
 COPY --from=deps --chown=www:www /app ${APP_WORKDIR}
 
-# Copy built assets from Node stage
-COPY --from=assets --chown=www:www /build/public/build ${APP_WORKDIR}/public/build
-
-# Permissions & directories setup
+# Permissions
 RUN set -eux; \
-    mkdir -p storage/framework/cache/data \
-             storage/framework/sessions \
-             storage/framework/views \
-             storage/framework/testing \
-             storage/logs \
-             storage/app/public \
-             bootstrap/cache; \
-    chown -R www:www storage bootstrap/cache; \
-    chmod -R ug+rwX storage bootstrap/cache; \
-    chmod -R 775 storage/framework/views; \
+    if [ -d storage ]; then \
+      chown -R www:www storage bootstrap/cache; \
+      chmod -R ug+rwX storage bootstrap/cache; \
+    fi; \
     if [ -d public ]; then \
       chmod -R 755 public; \
     fi
 
-# Entrypoint script (only for copying public to shared volume, no npm needed)
+# Entrypoint untuk copy public/ ke shared volume saat startup
 COPY DockerNew/php/entrypoint-registry.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

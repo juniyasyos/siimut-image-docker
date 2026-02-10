@@ -64,37 +64,4 @@ else
     echo "✅ .env file already exists."
 fi
 
-# Build frontend assets
-echo ""
-echo "📦 Building frontend assets..."
-cd "${SITE_DIR}"
-
-if [ -f package.json ]; then
-    echo "  📋 Running npm install..."
-    if npm install; then
-        echo "✅ npm install successful"
-    else
-        echo "❌ npm install failed!"
-        exit 1
-    fi
-    
-    echo "  🔨 Running npm run build..."
-    if npm run build; then
-        echo "✅ npm run build successful"
-    else
-        echo "❌ npm run build failed!"
-        exit 1
-    fi
-    
-    echo "🔍 Build artifacts:"
-    [ -d build ] && ls -la build/ | head -5 || echo "  build/ not found"
-    [ -d dist ] && ls -la dist/ | head -5 || echo "  dist/ not found"
-else
-    echo "⚠️  package.json not found, skipping npm build"
-fi
-
-cd "../../"
-
-echo ""
-echo "✅ IAM fully prepared with build assets!"
-echo "💡 Next: Run 'docker-compose -f docker-compose-multi-apps.yml build --no-cache && docker-compose -f docker-compose-multi-apps.yml up -d'"
+echo "� Next: Run ./build-iam.sh to build the image"

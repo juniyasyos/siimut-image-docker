@@ -1,8 +1,8 @@
 name: siimut-app
 
 volumes:
-  siimut_storage:
-  siimut_bootstrap_cache:
+  storage_data:  # Renamed from siimut_storage to match base
+  bootstrap_cache:  # Renamed from siimut_bootstrap_cache to match base
   nginx_logs:
 
 services:
@@ -17,7 +17,7 @@ services:
     volumes:
       - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./Docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - siimut_storage:/var/www/siimut/storage:ro
+      - storage_data:/var/www/siimut/storage:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       app-siimut:
@@ -56,19 +56,21 @@ services:
     container_name: siimut-app
     working_dir: /var/www/siimut
     env_file:
-      - ./env/.env.siimut-standalone
+      - ./env/env.production  # Updated to match base multi-apps
     environment:
       APP_ENV: production
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
       APP_WORKDIR: /var/www/siimut
-      DB_HOST: database-service
+      DB_HOST: db
       # Disable SSO - using local authentication
       USE_SSO: "false"
       IAM_ENABLED: "false"
       APP_URL: "${APP_URL:-http://localhost:8000}"
+      COMPOSER_CACHE_DIR: /tmp/composer  # Added from base x-app-base
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}  # Added from base x-app-base
     volumes:
-      - siimut_storage:/var/www/siimut/storage
-      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - storage_data:/var/www/siimut/storage  # Updated volume name to match base
+      - bootstrap_cache:/var/www/siimut/bootstrap/cache  # Updated volume name to match base
     restart: unless-stopped
     deploy:
       resources:
@@ -103,14 +105,16 @@ services:
     container_name: siimut-queue
     working_dir: /var/www/siimut
     env_file:
-      - ./env/.env.siimut-standalone
+      - ./env/env.production  # Updated to match base multi-apps
     environment:
-      DB_HOST: database-service
+      DB_HOST: db
       USE_SSO: "false"
       IAM_ENABLED: "false"
+      COMPOSER_CACHE_DIR: /tmp/composer  # Added from base x-app-base
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}  # Added from base x-app-base
     volumes:
-      - siimut_storage:/var/www/siimut/storage
-      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - storage_data:/var/www/siimut/storage  # Updated volume name to match base
+      - bootstrap_cache:/var/www/siimut/bootstrap/cache  # Updated volume name to match base
     entrypoint: ["php"]
     command: >
       artisan queue:work --sleep=3 --tries=3
@@ -142,14 +146,16 @@ services:
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
     env_file:
-      - ./env/.env.siimut-standalone
+      - ./env/env.production  # Updated to match base multi-apps
     environment:
-      DB_HOST: database-service
+      DB_HOST: db
       USE_SSO: "false"
       IAM_ENABLED: "false"
+      COMPOSER_CACHE_DIR: /tmp/composer  # Added from base x-app-base
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}  # Added from base x-app-base
     volumes:
-      - siimut_storage:/var/www/siimut/storage
-      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - storage_data:/var/www/siimut/storage  # Updated volume name to match base
+      - bootstrap_cache:/var/www/siimut/bootstrap/cache  # Updated volume name to match base
     entrypoint: ["php"]
     command: >
       artisan schedule:work

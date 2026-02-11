@@ -1,0 +1,257 @@
+name: siimut-app
+
+volumes:
+  siimut_data:
+  siimut_storage:
+  siimut_bootstrap_cache:
+  nginx_logs:
+
+services:
+  ####################################################################################################
+  # Nginx Web Server
+  ####################################################################################################
+  web:
+    image: nginx:alpine
+    container_name: siimut-web
+    ports:
+      - "${SIIMUT_PORT:-8000}:80"
+    volumes:
+      - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./Docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - siimut_storage:/var/www/siimut/storage:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      app-siimut:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.3"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      default:
+        aliases:
+          - siimut-web
+
+  ####################################################################################################
+  # SIIMUT PHP Application
+  ####################################################################################################
+  app-siimut:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.siimut-standalone
+      args:
+        APP_DIR: siimut
+        APP_NAME: "SIIMUT Application"
+        APP_ENV: production
+    container_name: siimut-app
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut-standalone
+    environment:
+      APP_ENV: production
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+      APP_WORKDIR: /var/www/siimut
+      DB_HOST: database-service
+      # Disable SSO - using local authentication
+      USE_SSO: "false"
+      IAM_ENABLED: "false"
+      APP_URL: "${APP_URL:-http://localhost:8000}"
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    depends_on:
+      database-service:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      default:
+        aliases:
+          - siimut-app
+
+  ####################################################################################################
+  # Queue Worker - SIIMUT
+  ####################################################################################################
+  queue-siimut:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.siimut-standalone
+      args:
+        APP_DIR: siimut
+        APP_NAME: "SIIMUT Application"
+        APP_ENV: production
+    container_name: siimut-queue
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut-standalone
+    environment:
+      DB_HOST: database-service
+      USE_SSO: "false"
+      IAM_ENABLED: "false"
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan queue:work --sleep=3 --tries=3
+    depends_on:
+      database-service:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+    networks:
+      default:
+        aliases:
+          - siimut-queue
+
+  ####################################################################################################
+  # Task Scheduler - SIIMUT
+  ####################################################################################################
+  scheduler-siimut:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.siimut-standalone
+      args:
+        APP_DIR: siimut
+        APP_NAME: "SIIMUT Application"
+        APP_ENV: production
+    container_name: siimut-scheduler
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut-standalone
+    environment:
+      DB_HOST: database-service
+      USE_SSO: "false"
+      IAM_ENABLED: "false"
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan schedule:work
+    depends_on:
+      database-service:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    networks:
+      default:
+        aliases:
+          - siimut-scheduler
+
+  ####################################################################################################
+  # Database - MySQL/MariaDB
+  ####################################################################################################
+  database-service:
+    image: mariadb:10.11
+    container_name: siimut-db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - siimut_data:/var/lib/mysql
+      - ./DockerNew/db/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./DockerNew/db/sql:/docker-entrypoint-initdb.d:ro
+    env_file:
+      - ./env/.env.db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-siimut}
+      MYSQL_USER: ${MYSQL_USER:-siimut}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-siimut-password}
+      MYSQL_RANDOM_ROOT_PASSWORD: "no"
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+      MYSQL_INIT_CONNECT: "SET SESSION sql_mode=''"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+        reservations:
+          memory: 512M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      default:
+        aliases:
+          - database-service
+
+  ####################################################################################################
+  # phpMyAdmin - Database Management
+  ####################################################################################################
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: siimut-pma
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    depends_on:
+      - database-service
+    environment:
+      PMA_HOST: database-service
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER:-siimut}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-siimut-password}
+      PMA_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123}
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 1024M
+      MEMORY_LIMIT: 1024M
+      POST_MAX_SIZE: 1024M
+      MAX_EXECUTION_TIME: 600
+      MAX_INPUT_TIME: 600
+      MAX_INPUT_VARS: 10000
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+    networks:
+      default:
+        aliases:
+          - siimut-pma

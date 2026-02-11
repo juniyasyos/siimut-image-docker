@@ -2,22 +2,20 @@ name: service-app
 
 services:
   ####################################################################################################
-  # Caddy Web Server - Production Optimized
+  # Nginx Web Server - Production Optimized
   ####################################################################################################
   web:
-    image: caddy:2-alpine
+    image: nginx:alpine
     container_name: ${STACK_NAME:-multi}-web
     ports:
       - "${SIIMUT_PORT:-8000}:8000"
       - "${IAM_PORT:-8100}:8100"
-      # - "443:443" # TLS support for production
     volumes:
-      - ./DockerNew/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./DockerNew/nginx/nginx-multi-apps.conf:/etc/nginx/conf.d/default.conf:ro
       - siimut_public:/var/www/siimut/public:ro  # Public assets from SIIMUT
       - iam_public:/var/www/iam/public:ro        # Public assets from IAM
-      - caddy_data:/data
-      - caddy_config:/config
-      - caddy_logs:/var/log/caddy
+      - nginx_logs:/var/log/nginx
     depends_on:
       app-siimut:
         condition: service_healthy
@@ -34,11 +32,11 @@ services:
           memory: 128M
           cpus: "0.1"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8088/ || exit 1"]
+      test: ["CMD", "nginx", "-t"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
 
   ####################################################################################################
   ####################################################################################################
@@ -222,14 +220,10 @@ services:
 ####################################################################################################
 volumes:
   # Web server data
-  caddy_data:
-    driver: local
-  caddy_config:
-    driver: local
-  caddy_logs:
+  nginx_logs:
     driver: local
 
-  # ====== PUBLIC ASSETS (untuk Caddy serve static files) ======
+  # ====== PUBLIC ASSETS (untuk Nginx serve static files) ======
   siimut_public:
     driver: local
   iam_public:

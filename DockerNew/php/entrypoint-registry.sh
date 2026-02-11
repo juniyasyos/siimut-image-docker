@@ -26,7 +26,7 @@ fi
 if [ -f "./switch-auth-mode.sh" ]; then
     echo "🔐 Setting authentication mode..."
     chmod +x ./switch-auth-mode.sh
-    ./switch-auth-mode.sh prod || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
+    ./switch-auth-mode.sh dev || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
 fi
 
 # Copy public assets to shared volume for Caddy (only if PUBLIC_VOLUME is set and exists)

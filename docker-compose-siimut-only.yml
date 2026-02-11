@@ -56,7 +56,7 @@ services:
     container_name: siimut-app
     working_dir: /var/www/siimut
     env_file:
-      - ./env/env.siimut  # Updated to match base multi-apps
+      - ./env/.env.siimut  # Updated to match base multi-apps
     environment:
       APP_ENV: production
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
@@ -105,7 +105,7 @@ services:
     container_name: siimut-queue
     working_dir: /var/www/siimut
     env_file:
-      - ./env/env.siimut  # Updated to match base multi-apps
+      - ./env/.env.siimut  # Updated to match base multi-apps
     environment:
       DB_HOST: db
       USE_SSO: "false"
@@ -146,7 +146,7 @@ services:
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
     env_file:
-      - ./env/env.siimut  # Updated to match base multi-apps
+      - ./env/.env.siimut  # Updated to match base multi-apps
     environment:
       DB_HOST: db
       USE_SSO: "false"

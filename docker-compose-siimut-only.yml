@@ -69,9 +69,6 @@ services:
     volumes:
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-    depends_on:
-      db:  # Updated to depend on db from base compose
-        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -117,9 +114,6 @@ services:
     entrypoint: ["php"]
     command: >
       artisan queue:work --sleep=3 --tries=3
-    depends_on:
-      db:  # Updated to depend on db from base compose
-        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -159,9 +153,6 @@ services:
     entrypoint: ["php"]
     command: >
       artisan schedule:work
-    depends_on:
-      db:  # Updated to depend on db from base compose
-        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:

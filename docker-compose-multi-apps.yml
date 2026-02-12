@@ -74,6 +74,8 @@ services:
       ### IAM_LOGIN_ROUTE: "/login"
       ### IAM_CALLBACK_ROUTE: "/callback"
     volumes:
+      # Mount kode aplikasi untuk development (bukan immutable)
+      - ./site/siimut:/var/www/siimut
       # Only persistent data, NO CODE mounts
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
@@ -113,6 +115,7 @@ services:
     environment:
       DB_HOST: database-service
     volumes:
+      - ./site/siimut:/var/www/siimut
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
     entrypoint: ["php"]
@@ -143,6 +146,7 @@ services:
     environment:
       DB_HOST: database-service
     volumes:
+      - ./site/siimut:/var/www/siimut
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
     entrypoint: ["php"]

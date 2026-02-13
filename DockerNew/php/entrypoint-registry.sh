@@ -22,6 +22,20 @@ if [ "$APP_ENV" = "production" ] && [ ! -f ".env" ]; then
     exit 1
 fi
 
+# SYNC .env dari master file (development mode)
+# Copy entire .env.dev.siimut atau .env.siimut ke .env
+if [ -f "/var/www/env/.env.dev.siimut" ]; then
+    echo "📋 Syncing .env from master file: /var/www/env/.env.dev.siimut"
+    cp /var/www/env/.env.dev.siimut ./.env
+    echo "✅ .env file synchronized"
+elif [ -f "/var/www/env/.env.siimut" ]; then
+    echo "📋 Syncing .env from master file: /var/www/env/.env.siimut (production)"
+    cp /var/www/env/.env.siimut ./.env
+    echo "✅ .env file synchronized"
+else
+    echo "⚠️  Master .env files not found at /var/www/env/ - using existing .env"
+fi
+
 # Run switch-auth-mode.sh if exists (for SIIMUT)
 if [ -f "./switch-auth-mode.sh" ]; then
     echo "🔐 Setting authentication mode..."

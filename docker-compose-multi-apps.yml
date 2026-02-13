@@ -58,13 +58,13 @@ services:
     container_name: siimut-app
     working_dir: /var/www/siimut
     env_file:
-      - ./env/.env.siimut
+      - ./env/.env.dev.siimut
     environment:
-      APP_ENV: production
-      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/public-shared-siimut
-      DB_HOST: database-service
+      DB_HOST: db
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
       ### # SSO Configuration - Override from compose
       ### USE_SSO: "true"
       ### IAM_ENABLED: "true"
@@ -76,6 +76,8 @@ services:
     volumes:
       # Mount kode aplikasi untuk development (bukan immutable)
       - ./site/siimut:/var/www/siimut
+      # Master .env files untuk auto-sync
+      - ./env:/var/www/env
       # Only persistent data, NO CODE mounts
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
@@ -113,7 +115,9 @@ services:
     env_file:
       - ./env/.env.siimut
     environment:
-      DB_HOST: database-service
+      DB_HOST: db
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
     volumes:
       - ./site/siimut:/var/www/siimut
       - siimut_storage:/var/www/siimut/storage
@@ -144,7 +148,9 @@ services:
     env_file:
       - ./env/.env.siimut
     environment:
-      DB_HOST: database-service
+      DB_HOST: db
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
     volumes:
       - ./site/siimut:/var/www/siimut
       - siimut_storage:/var/www/siimut/storage

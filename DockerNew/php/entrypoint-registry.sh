@@ -43,26 +43,43 @@ if [ -f "./switch-auth-mode.sh" ]; then
     ./switch-auth-mode.sh dev || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
 fi
 
-# Copy public assets to shared volume for Caddy (only if PUBLIC_VOLUME is set and exists)
+# Copy public assets to shared volume (only if PUBLIC_VOLUME is set and exists)
+# Skip if SKIP_PUBLIC_SYNC is true or if source and destination are the same
 if [ -n "${PUBLIC_VOLUME}" ] && [ -d "${PUBLIC_VOLUME}" ]; then
-    echo "📦 Syncing public assets to ${PUBLIC_VOLUME}..."
     
-    # Create target directory if not exists
-    mkdir -p "${PUBLIC_VOLUME}"
-    
-    # Rsync or cp (rsync lebih efficient untuk update)
-    if command -v rsync >/dev/null 2>&1; then
-        rsync -a --delete "${APP_WORKDIR}/public/" "${PUBLIC_VOLUME}/"
-        echo "✅ Public assets synced via rsync"
+    # Check if we should skip sync
+    if [ "${SKIP_PUBLIC_SYNC}" = "true" ]; then
+        echo "ℹ️  SKIP_PUBLIC_SYNC=true, skipping public asset sync"
     else
-        # Fallback to cp
-        rm -rf "${PUBLIC_VOLUME:?}"/*
-        cp -r "${APP_WORKDIR}/public/." "${PUBLIC_VOLUME}/"
-        echo "✅ Public assets copied"
+        # Check if source and destination are the same
+        SOURCE_REAL=$(cd "${APP_WORKDIR}/public" 2>/dev/null && pwd || echo "${APP_WORKDIR}/public")
+        DEST_REAL=$(cd "${PUBLIC_VOLUME}" 2>/dev/null && pwd || echo "${PUBLIC_VOLUME}")
+        
+        if [ "${SOURCE_REAL}" = "${DEST_REAL}" ]; then
+            echo "ℹ️  Source and destination are the same (shared volume), skipping sync"
+        else
+            echo "📦 Syncing public assets to ${PUBLIC_VOLUME}..."
+            
+            # Create target directory if not exists
+            mkdir -p "${PUBLIC_VOLUME}"
+            
+            # Rsync or cp (rsync lebih efficient untuk update)
+            if command -v rsync >/dev/null 2>&1; then
+                rsync -a --delete "${APP_WORKDIR}/public/" "${PUBLIC_VOLUME}/"
+                echo "✅ Public assets synced via rsync"
+            else
+                # Fallback to cp
+                if [ -d "${PUBLIC_VOLUME}" ] && [ "$(ls -A ${PUBLIC_VOLUME} 2>/dev/null)" ]; then
+                    rm -rf "${PUBLIC_VOLUME:?}"/*
+                fi
+                cp -r "${APP_WORKDIR}/public/." "${PUBLIC_VOLUME}/"
+                echo "✅ Public assets copied"
+            fi
+            
+            # Set permissions for Caddy to read
+            chmod -R 755 "${PUBLIC_VOLUME}"
+        fi
     fi
-    
-    # Set permissions for Caddy to read
-    chmod -R 755 "${PUBLIC_VOLUME}"
 else
     echo "ℹ️  PUBLIC_VOLUME not set or doesn't exist, skipping public sync"
 fi

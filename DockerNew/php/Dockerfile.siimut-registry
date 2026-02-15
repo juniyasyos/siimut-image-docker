@@ -64,12 +64,7 @@ RUN set -eux; \
       echo ">> Pre-installing composer dependencies..."; \
       cd /tmp/composer-files; \
       composer install \
-        --no-dev \
-        --prefer-dist \
-        --no-interaction \
-        --no-progress \
-        --no-scripts \
-        --no-autoloader; \
+        --no-interaction; \
       cp -r vendor/ /app/; \
     fi; \
     rm -rf /tmp/composer-files

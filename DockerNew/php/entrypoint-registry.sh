@@ -125,7 +125,7 @@ fi
 echo "📦 Building frontend assets..."
 if [ -f package.json ]; then
   echo "  📋 Running npm install..."
-  npm install --no-save 2>&1 | tail -5
+  npm install 2>&1 | tail -5
   
   echo "  🔨 Running npm run build..."
   npm run build 2>&1 | tail -10

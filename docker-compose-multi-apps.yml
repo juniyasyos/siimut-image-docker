@@ -8,19 +8,19 @@ services:
     image: nginx:alpine
     container_name: ${STACK_NAME:-multi}-web
     ports:
-      # - "${SIIMUT_PORT:-8000}:8000"
-      - "${IAM_PORT:-8100}:8100"
+      - "${SIIMUT_PORT:-8000}:8000"
+      # - "${IAM_PORT:-8100}:8100"
     volumes:
       - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./DockerNew/nginx/nginx-multi-apps.conf:/etc/nginx/conf.d/default.conf:ro
-      # - siimut_public:/var/www/siimut/public:ro  # Shared volume (read-only for nginx)
-      - iam_public:/var/www/iam/public:ro        # Public assets from IAM
+      - siimut_public:/var/www/siimut/public:ro  # Shared volume (read-only for nginx)
+      # - iam_public:/var/www/iam/public:ro        # Public assets from IAM
       - nginx_logs:/var/log/nginx
     depends_on:
-      # app-siimut:
-      #   condition: service_healthy
-      app-iam:
+      app-siimut:
         condition: service_healthy
+      # app-iam:
+      #   condition: service_healthy
     restart: unless-stopped
     # Production resource limits
     deploy:
@@ -47,61 +47,63 @@ services:
   ####################################################################################################
   # Apps SIIMUT
   ####################################################################################################
-  # app-siimut:
-  #   build:
-  #     context: .
-  #     dockerfile: DockerNew/php/Dockerfile.siimut-registry
-  #     args:
-  #       APP_DIR: siimut
-  #       APP_NAME: "SIIMUT Application"
-  #       APP_ENV: production
-  #   container_name: siimut-app
-  #   working_dir: /var/www/siimut
-  #   env_file:
-  #     - ./env/.env.dev.siimut
-  #   environment:
-  #     APP_WORKDIR: /var/www/siimut
-  #     PUBLIC_VOLUME: /var/www/siimut/public
-  #     DB_HOST: database-service
-  #     DB_USER: siimut_user
-  #     DB_PASSWORD: siimut-password
-  #     SKIP_PUBLIC_SYNC: "true"
-  #     # SSO Configuration - Override from compose
-  #     USE_SSO: "true"
-  #     IAM_ENABLED: "true"
-  #     IAM_HOST: "http://localhost:8100"
-  #     IAM_BASE_URL: "http://localhost:8100"
-  #     APP_URL: "http://localhost:8000"
-  #     IAM_LOGIN_ROUTE: "/login"
-  #     IAM_CALLBACK_ROUTE: "/callback"
-  #   volumes:
-  #     # Mount only app source code for development (NOT vendor - comes from build)
-  #     - ./site/siimut/app:/var/www/siimut/app
-  #     - ./site/siimut/config:/var/www/siimut/config
-  #     - ./site/siimut/routes:/var/www/siimut/routes
-  #     - ./site/siimut/resources:/var/www/siimut/resources
-  #     - ./site/siimut/database:/var/www/siimut/database
-  #     # Master .env files - entrypoint script akan sync .env otomatis
-  #     - ./env:/var/www/env
-  #     # Persistent storage and cache
-  #     - siimut_storage:/var/www/siimut/storage
-  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-  #     - siimut_public:/var/www/siimut/public  # Shared volume (public assets)
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 1.5G
-  #         cpus: "1.5"
-  #       reservations:
-  #         memory: 768M
-  #         cpus: "0.75"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s
+  app-siimut:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.siimut-registry
+      args:
+        APP_DIR: siimut
+        APP_NAME: "SIIMUT Application"
+        APP_ENV: production
+    container_name: siimut-app
+    working_dir: /var/www/siimut
+    # env_file:
+    #   - ./env/.env.dev.siimut
+    environment:
+      APP_ENV: production
+      APP_WORKDIR: /var/www/siimut
+      PUBLIC_VOLUME: /var/www/siimut/public
+      APP_URL: "http://localhost:8000"
+      DB_HOST: database-service
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
+      SKIP_PUBLIC_SYNC: "true"
+      # SSO Configuration - Override from compose
+      USE_SSO: "false"
+      IAM_ENABLED: "false"
+      # IAM_HOST: "http://localhost:8100"
+      # IAM_BASE_URL: "http://localhost:8100"
+      # APP_URL: "http://localhost:8000"
+      # IAM_LOGIN_ROUTE: "/siimut/login"
+      # IAM_CALLBACK_ROUTE: "/sso/callback"
+    volumes:
+      # Mount only app source code for development (NOT vendor - comes from build)
+      - ./site/siimut/app:/var/www/siimut/app
+      - ./site/siimut/config:/var/www/siimut/config
+      - ./site/siimut/routes:/var/www/siimut/routes
+      - ./site/siimut/resources:/var/www/siimut/resources
+      - ./site/siimut/database:/var/www/siimut/database
+      # Master .env files - entrypoint script akan sync .env otomatis
+      - ./env:/var/www/env
+      # Persistent storage and cache
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - siimut_public:/var/www/siimut/public  # Shared volume (public assets)
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # queue-siimut:
   #   build:
@@ -173,51 +175,51 @@ services:
   ####################################################################################################
   # Apps IAM
   ####################################################################################################
-  app-iam:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.iam-registry
-      args:
-        APP_DIR: iam-server
-        APP_NAME: "IAM Server"
-        APP_ENV: production
-    container_name: iam-app
-    working_dir: /var/www/iam
-    env_file:
-      - ./env/.env.iam
-    environment:
-      APP_ENV: production
-      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
-      APP_WORKDIR: /var/www/iam
-      PUBLIC_VOLUME: /var/www/public-shared-iam
-      DB_HOST: database-service
-      # IAM Server Configuration - Override from compose
-      APP_URL: "http://localhost:8100"
-      SSO_ALLOWED_CLIENTS: "siimut:http://localhost:8000/sso/callback"
-    volumes:
-      # Only persistent data, NO CODE mounts
-      - iam_storage:/var/www/iam/storage
-      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
-      - iam_public:/var/www/public-shared-iam  # Shared with Caddy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1.5G
-          cpus: "0.7"
-        reservations:
-          memory: 768M
-          cpus: "0.35"
-    healthcheck:
-      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      default:
-        aliases:
-          - iam-app
+  # app-iam:
+  #   build:
+  #     context: .
+  #     dockerfile: DockerNew/php/Dockerfile.iam-registry
+  #     args:
+  #       APP_DIR: iam-server
+  #       APP_NAME: "IAM Server"
+  #       APP_ENV: production
+  #   container_name: iam-app
+  #   working_dir: /var/www/iam
+  #   env_file:
+  #     - ./env/.env.iam
+  #   environment:
+  #     APP_ENV: production
+  #     PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+  #     APP_WORKDIR: /var/www/iam
+  #     PUBLIC_VOLUME: /var/www/public-shared-iam
+  #     DB_HOST: database-service
+  #     # IAM Server Configuration - Override from compose
+  #     APP_URL: "http://localhost:8100"
+  #     SSO_ALLOWED_CLIENTS: "siimut:http://localhost:8000/sso/callback"
+  #   volumes:
+  #     # Only persistent data, NO CODE mounts
+  #     - iam_storage:/var/www/iam/storage
+  #     - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
+  #     - iam_public:/var/www/public-shared-iam  # Shared with Caddy
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1.5G
+  #         cpus: "0.7"
+  #       reservations:
+  #         memory: 768M
+  #         cpus: "0.35"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
+  #   networks:
+  #     default:
+  #       aliases:
+  #         - iam-app
 
   ####################################################################################################
   ####################################################################################################
@@ -234,23 +236,23 @@ volumes:
     driver: local
 
   # ====== PUBLIC ASSETS (untuk Nginx serve static files) ======
-  # siimut_public:
-  #   driver: local
-  iam_public:
+  siimut_public:
     driver: local
+  # iam_public:
+  #   driver: local
 
   # ====== DATA PERSISTEN LARAVEL (tanpa vendor) ======
   # SIIMUT
-  # siimut_storage:
-  #   driver: local
-  # siimut_bootstrap_cache:
-  #   driver: local
+  siimut_storage:
+    driver: local
+  siimut_bootstrap_cache:
+    driver: local
 
-  # IAM
-  iam_storage:
-    driver: local
-  iam_bootstrap_cache:
-    driver: local
+  # # IAM
+  # iam_storage:
+  #   driver: local
+  # iam_bootstrap_cache:
+  #   driver: local
 
 ####################################################################################################
 # Networks - Production Security

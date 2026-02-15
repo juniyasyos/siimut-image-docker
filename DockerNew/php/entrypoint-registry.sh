@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "🚀 Starting IAM App (Production Registry Mode)"
+echo "🚀 Starting App (Production Registry Mode)"
 
 APP_ENV="${APP_ENV:-production}"
-APP_WORKDIR="${APP_WORKDIR:-/var/www/iam}"
+APP_WORKDIR="${APP_WORKDIR:-/var/www/siimut}"
 PUBLIC_VOLUME="${PUBLIC_VOLUME:-/var/www/public-shared}"
 
 echo "📁 APP_WORKDIR=${APP_WORKDIR}"
@@ -16,24 +16,16 @@ if [ ! -f artisan ]; then
     exit 1
 fi
 
-# Validate .env
-if [ "$APP_ENV" = "production" ] && [ ! -f ".env" ]; then
-    echo "❌ .env not found in production mode"
-    exit 1
-fi
-
-# SYNC .env dari master file (development mode)
-# Copy entire .env.dev.siimut atau .env.siimut ke .env
-if [ -f "/var/www/env/.env.dev.siimut" ]; then
-    echo "📋 Syncing .env from master file: /var/www/env/.env.dev.siimut"
-    cp /var/www/env/.env.dev.siimut ./.env
-    echo "✅ .env file synchronized"
-elif [ -f "/var/www/env/.env.siimut" ]; then
-    echo "📋 Syncing .env from master file: /var/www/env/.env.siimut (production)"
-    cp /var/www/env/.env.siimut ./.env
-    echo "✅ .env file synchronized"
-else
-    echo "⚠️  Master .env files not found at /var/www/env/ - using existing .env"
+# Validate .env - copy from .env.example if not exists
+if [ ! -f ".env" ]; then
+    if [ -f ".env.example" ]; then
+        echo "📋 Copying .env.example to .env..."
+        cp .env.example .env
+        echo "✅ .env file created from .env.example"
+    else
+        echo "❌ .env and .env.example not found"
+        exit 1
+    fi
 fi
 
 # Run switch-auth-mode.sh if exists (for SIIMUT)
@@ -87,7 +79,7 @@ fi
 # Wait for database
 echo "⏳ Waiting for database..."
 php -r '
-$host    = getenv("DB_HOST") ?: "db";
+$host    = getenv("DB_HOST") ?: "database-service";
 $port    = getenv("DB_PORT") ?: 3306;
 $timeout = 60;
 $start   = time();

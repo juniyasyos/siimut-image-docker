@@ -67,6 +67,7 @@ services:
       DB_HOST: database-service
       DB_USERNAME: siimut_user
       DB_PASSWORD: siimut-password
+      DB_DATABASE: siimut_db
       SKIP_PUBLIC_SYNC: "true"
       # SSO Configuration - Override from compose
       USE_SSO: "false"

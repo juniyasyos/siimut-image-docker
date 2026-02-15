@@ -63,9 +63,9 @@ services:
       APP_ENV: production
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://localhost:8000"
+      APP_URL: "http://192.168.1.9:8000"
       DB_HOST: database-service
-      DB_USER: siimut_user
+      DB_USERNAME: siimut_user
       DB_PASSWORD: siimut-password
       SKIP_PUBLIC_SYNC: "true"
       # SSO Configuration - Override from compose

@@ -15,7 +15,7 @@ RUN apk add --no-cache \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
-      linux-headers curl openssl nodejs npm git \
+      linux-headers curl openssl nodejs npm git vim \
       $PHPIZE_DEPS \
   && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
   && echo "${TZ}" > /etc/timezone \

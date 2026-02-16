@@ -64,4 +64,76 @@ else
     echo "✅ .env file already exists."
 fi
 
-echo "💡 Next: Run ./build-siimut.sh to build the image"
+# =========================
+# Local Verification and Build Preparation
+# =========================
+echo ""
+echo "🔍 Starting local verification and build preparation..."
+cd "${SITE_DIR}"
+
+# Check dependencies
+echo "🔧 Checking dependencies..."
+if ! command -v php &> /dev/null; then
+    echo "❌ PHP not found. Please install PHP 8.1+."
+    exit 1
+fi
+if ! command -v composer &> /dev/null; then
+    echo "❌ Composer not found. Please install Composer."
+    exit 1
+fi
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js not found. Please install Node.js 16+."
+    exit 1
+fi
+if ! command -v npm &> /dev/null; then
+    echo "❌ npm not found. Please install npm."
+    exit 1
+fi
+echo "✅ Dependencies OK"
+
+# Install Composer dependencies
+echo "📦 Installing Composer dependencies..."
+if [ -f "composer.json" ]; then
+    composer install --no-interaction --optimize-autoloader
+    echo "✅ Composer install complete"
+else
+    echo "⚠️  composer.json not found, skipping Composer install"
+fi
+
+# Install npm dependencies and build frontend
+echo "📦 Installing npm dependencies..."
+if [ -f "package.json" ]; then
+    npm install
+    echo "🔨 Building frontend assets..."
+    npm run build
+    echo "✅ Frontend build complete"
+else
+    echo "⚠️  package.json not found, skipping npm build"
+fi
+
+# Validate Laravel setup
+echo "🔍 Validating Laravel setup..."
+if [ -f "artisan" ]; then
+    php artisan --version
+    echo "✅ Laravel OK"
+else
+    echo "❌ artisan not found. Not a valid Laravel app."
+    exit 1
+fi
+
+# Test basic functionality (optional artisan commands)
+echo "🧪 Running basic tests..."
+php artisan config:cache --quiet || echo "⚠️ config:cache failed (continuing)"
+php artisan route:cache --quiet || echo "⚠️ route:cache failed (continuing)"
+php artisan view:cache --quiet || echo "⚠️ view:cache failed (continuing)"
+
+# Publish Livewire assets (IMPORTANT for form submissions)
+echo "📦 Publishing Livewire assets..."
+php artisan livewire:publish --assets --quiet || echo "⚠️ livewire:publish failed (continuing)"
+
+echo "✅ Livewire assets published to public/vendor/livewire/"
+
+cd "../../"
+echo ""
+echo "✅ Local verification and build preparation complete!"
+echo "💡 Next: Run ./build-siimut.sh to build the Docker image"

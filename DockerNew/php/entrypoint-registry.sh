@@ -108,6 +108,21 @@ if [ -d storage ]; then
   mkdir -p storage/logs storage/app/public
   mkdir -p bootstrap/cache
   
+  # Create public/livewire symlink if not exists (Livewire asset serving)
+  if [ ! -L public/livewire ]; then
+    if [ -d public/vendor/livewire ]; then
+      ln -s vendor/livewire public/livewire
+      echo "✅ Created symlink: public/livewire -> vendor/livewire"
+    else
+      echo "📦 Publishing Livewire assets..."
+      su-exec www php artisan livewire:publish --assets >/dev/null 2>&1 || true
+      if [ -d public/vendor/livewire ]; then
+        ln -s vendor/livewire public/livewire
+        echo "✅ Livewire assets published and symlink created"
+      fi
+    fi
+  fi 
+  
   # Clear stale cache files yang mungkin corrupt atau orphaned
   echo "🧹 Cleaning stale cache files..."
   rm -rf storage/framework/views/*.php 2>/dev/null || true
@@ -121,20 +136,6 @@ if [ -d storage ]; then
   echo "✅ Permissions set"
 fi
 
-# Build Frontend Assets
-echo "📦 Building frontend assets..."
-if [ -f package.json ]; then
-  echo "  📋 Running npm install..."
-  npm install 2>&1 | tail -5
-  
-  echo "  🔨 Running npm run build..."
-  npm run build 2>&1 | tail -10
-  
-  echo "✅ Frontend build complete"
-else
-  echo "⚠️  package.json not found, skipping npm build"
-fi
-
 # Laravel cache warming (run as www user)
 echo "⚙️  Warming Laravel caches..."
 
@@ -146,10 +147,11 @@ su-exec www php artisan route:clear    >/dev/null 2>&1 || true
 su-exec www php artisan view:clear     >/dev/null 2>&1 || true
 su-exec www php artisan event:clear    >/dev/null 2>&1 || true
 
-# Rebuild caches
+# Rebuild caches (skip route:cache - Livewire routes incompatible with caching)
 echo "♻️  Rebuilding caches..."
 su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
-su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
+# NOTE: Skipping route:cache due to Livewire compatibility issues
+# su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
 su-exec www php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
 su-exec www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
 

@@ -48,13 +48,7 @@ services:
   # Apps SIIMUT
   ####################################################################################################
   app-siimut:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.siimut-registry
-      args:
-        APP_DIR: siimut
-        APP_NAME: "SIIMUT Application"
-        APP_ENV: production
+    image: siimut-app:2.0.1
     container_name: siimut-app
     working_dir: /var/www/siimut
     # env_file:

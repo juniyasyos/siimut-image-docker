@@ -48,7 +48,7 @@ services:
   # Apps SIIMUT
   ####################################################################################################
   app-siimut:
-    image: ${REGISTRY_URL:-localhost:5000}/siimut:dev
+    image: juniyasyos/siimut:dev
     container_name: siimut-app
     working_dir: /var/www/siimut
     # env_file:
@@ -57,7 +57,7 @@ services:
       APP_ENV: production
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://localhost:8000"
+      APP_URL: "http://192.168.1.9:8000"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
       DB_PASSWORD: siimut-password
@@ -93,71 +93,57 @@ services:
       retries: 3
       start_period: 60s
 
-  # queue-siimut:
-  #   build:
-  #     context: .
-  #     dockerfile: DockerNew/php/Dockerfile.siimut-registry
-  #     args:
-  #       APP_DIR: siimut
-  #       APP_NAME: "SIIMUT Application"
-  #       APP_ENV: production
-  #   container_name: siimut-queue
-  #   working_dir: /var/www/siimut
-  #   env_file:
-  #     - ./env/.env.siimut
-  #   environment:
-  #     DB_HOST: database-service
-  #     DB_USER: siimut_user
-  #     DB_PASSWORD: siimut-password
-  #   volumes:
-  #     - ./site/siimut:/var/www/siimut
-  #     - siimut_storage:/var/www/siimut/storage
-  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-  #   entrypoint: ["php"]
-  #   command: >
-  #     artisan queue:work --sleep=3 --tries=3
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 512M
-  #         cpus: "0.75"
-  #       reservations:
-  #         memory: 256M
-  #         cpus: "0.25"
+  queue-siimut:
+    image: juniyasyos/siimut:dev
+    container_name: siimut-queue
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut
+    environment:
+      DB_HOST: database-service
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan queue:work --sleep=3 --tries=3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
 
-  # scheduler-siimut:
-  #   build:
-  #     context: .
-  #     dockerfile: DockerNew/php/Dockerfile.siimut-registry
-  #     args:
-  #       APP_DIR: siimut
-  #       APP_NAME: "SIIMUT Application"
-  #       APP_ENV: production
-  #   container_name: siimut-scheduler
-  #   working_dir: /var/www/siimut
-  #   env_file:
-  #     - ./env/.env.siimut
-  #   environment:
-  #     DB_HOST: database-service
-  #     DB_USER: siimut_user
-  #     DB_PASSWORD: siimut-password
-  #   volumes:
-  #     - ./site/siimut:/var/www/siimut
-  #     - siimut_storage:/var/www/siimut/storage
-  #     - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-  #   entrypoint: ["php"]
-  #   command: >
-  #     artisan schedule:work
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 256M
-  #         cpus: "0.5"
-  #       reservations:
-  #         memory: 128M
-  #         cpus: "0.25"
+  scheduler-siimut:
+    image: juniyasyos/siimut:dev
+    container_name: siimut-scheduler
+    working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.siimut
+    environment:
+      DB_HOST: database-service
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan schedule:work
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
 
   ####################################################################################################

@@ -8,7 +8,7 @@ services:
     image: nginx:alpine
     container_name: ${STACK_NAME:-multi}-web
     ports:
-      - "${SIIMUT_PORT:-8000}:8000"
+      - "8000:8000"
       # - "${IAM_PORT:-8100}:8100"
     volumes:
       - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -48,7 +48,7 @@ services:
   # Apps SIIMUT
   ####################################################################################################
   app-siimut:
-    image: siimut-app:2.0.1
+    image: ${REGISTRY_URL:-localhost:5000}/siimut:dev
     container_name: siimut-app
     working_dir: /var/www/siimut
     # env_file:
@@ -57,7 +57,7 @@ services:
       APP_ENV: production
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.9:8000"
+      APP_URL: "http://localhost:8000"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
       DB_PASSWORD: siimut-password
@@ -72,15 +72,8 @@ services:
       # IAM_LOGIN_ROUTE: "/siimut/login"
       # IAM_CALLBACK_ROUTE: "/sso/callback"
     volumes:
-      # Mount only app source code for development (NOT vendor - comes from build)
-      - ./site/siimut/app:/var/www/siimut/app
-      - ./site/siimut/config:/var/www/siimut/config
-      - ./site/siimut/routes:/var/www/siimut/routes
-      - ./site/siimut/resources:/var/www/siimut/resources
-      - ./site/siimut/database:/var/www/siimut/database
-      # Master .env files - entrypoint script akan sync .env otomatis
-      - ./env:/var/www/env
-      # Persistent storage and cache
+      # Self-contained image - NO code mounts needed
+      # Only persistent data volumes
       - siimut_storage:/var/www/siimut/storage
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
       - siimut_public:/var/www/siimut/public  # Shared volume (public assets)

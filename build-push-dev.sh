@@ -1,0 +1,104 @@
+#!/bin/bash
+set -e
+
+# =========================
+# Build and Push SIIMUT Image for Development/Testing
+# =========================
+
+# Load REGISTRY_URL from .env if exists
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | grep REGISTRY_URL | xargs)
+fi
+
+# Registry configuration
+REGISTRY_URL="${REGISTRY_URL:-localhost:5000}"  # Change this to your registry
+IMAGE_NAME="siimut"
+TAG="dev"
+
+# Full image paths
+LOCAL_IMAGE="${IMAGE_NAME}:${TAG}"
+REGISTRY_IMAGE="${REGISTRY_URL}/${IMAGE_NAME}:${TAG}"
+
+echo "======================================"
+echo "🏗️  Building SIIMUT Dev Image"
+echo "======================================"
+echo "Local Image:    ${LOCAL_IMAGE}"
+echo "Registry Image: ${REGISTRY_IMAGE}"
+echo "======================================"
+echo ""
+
+# Pre-build validation
+echo "🔍 Pre-build validation..."
+if [ ! -d "site/siimut" ]; then
+    echo "❌ site/siimut directory not found!"
+    exit 1
+fi
+
+# Show recent changes to verify source is up to date
+echo "📝 Recent changes in site/siimut:"
+find site/siimut/public/build -type f -name "*.js" -o -name "*.css" -o -name "manifest.json" 2>/dev/null | head -5 || echo "  (no recent build artifacts found)"
+echo ""
+
+# Build Docker image
+echo "📦 Building Docker image (no cache to ensure fresh source)..."
+BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+echo "🕒 Build timestamp: ${BUILD_TIMESTAMP}"
+echo ""
+
+docker build \
+  --no-cache \
+  --progress=plain \
+  --build-arg APP_DIR=siimut \
+  --build-arg APP_NAME="SIIMUT Application" \
+  --build-arg APP_ENV=production \
+  --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
+  -f DockerNew/php/Dockerfile.siimut-registry \
+  -t "${LOCAL_IMAGE}" \
+  -t "${REGISTRY_IMAGE}" \
+  .
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ Build successful!"
+    echo ""
+    
+    # Show image details
+    echo "📊 Image Details:"
+    docker images "${IMAGE_NAME}" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+    echo ""
+    
+    # Push to registry
+    echo "======================================"
+    echo "📤 Pushing to Registry"
+    echo "======================================"
+    echo "Target: ${REGISTRY_IMAGE}"
+    echo ""
+    
+    docker push "${REGISTRY_IMAGE}"
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✅ Push successful!"
+        echo ""
+        echo "======================================"
+        echo "🎉 Image Ready for Deployment"
+        echo "======================================"
+        echo "Image: ${REGISTRY_IMAGE}"
+        echo ""
+        echo "To pull on server:"
+        echo "  docker pull ${REGISTRY_IMAGE}"
+        echo ""
+        echo "To run with compose:"
+        echo "  docker compose -f docker-compose-multi-apps.yml up -d"
+        echo ""
+    else
+        echo ""
+        echo "❌ Push failed!"
+        echo "Check registry connection and credentials."
+        exit 1
+    fi
+else
+    echo ""
+    echo "❌ Build failed!"
+    exit 1
+fi

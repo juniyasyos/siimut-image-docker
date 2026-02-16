@@ -27,7 +27,7 @@ services:
           memory: 256M
           cpus: "0.15"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://192.168.1.9:9000/minio/health/ready"]
+      test: ["CMD", "curl", "-f", "http://192.168.1.9:9090/minio/health/ready"]
       interval: 5s
       timeout: 3s
       retries: 12

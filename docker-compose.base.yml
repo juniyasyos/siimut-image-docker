@@ -15,9 +15,9 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Console UI
-    command: server /data --console-address ":9001"
+      - "9090:9090"   # S3 API
+      - "9091:9091"   # Console UI
+    command: server /data --console-address ":9091"
     deploy:
       resources:
         limits:
@@ -27,7 +27,7 @@ services:
           memory: 256M
           cpus: "0.15"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      test: ["CMD", "curl", "-f", "http://192.168.1.9:9000/minio/health/ready"]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -51,7 +51,7 @@ services:
         sleep 2
         
         echo "🔧 Mengonfigurasi mc alias..."
-        mc alias set myminio http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" --api S3v4
+        mc alias set myminio http://minio:9090 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" --api S3v4
         
         echo "📦 Memeriksa bucket '$${MINIO_BUCKET}'..."
         if mc ls myminio/$${MINIO_BUCKET} >/dev/null 2>&1; then

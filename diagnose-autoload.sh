@@ -73,7 +73,8 @@ err(){ printf "[ERROR] %s\n" "$*"; }
 
 # Create and run a PHP helper inside the container to enumerate classes and test autoload
 generate_report_in_container(){
-  cat > /tmp/diagnose_autoload_helper.php <<'PHP'
+  # create helper *inside* the container and execute it there (previously it was written on the host)
+  run_in_container "cat > /tmp/diagnose_autoload_helper.php <<'PHP'
 <?php
 $dir = getenv('DIAG_DIR') ?: '/var/www/siimut/app';
 $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
@@ -128,8 +129,7 @@ foreach ($rii as $file) {
     // optional: files without declared class are ignored
 }
 PHP
-  # copy helper to container and execute it
-  run_in_container "DIAG_DIR=${TARGET_DIR} php /tmp/diagnose_autoload_helper.php; rm -f /tmp/diagnose_autoload_helper.php"
+DIAG_DIR=${TARGET_DIR} php /tmp/diagnose_autoload_helper.php; rm -f /tmp/diagnose_autoload_helper.php"
 }
 
 # Run scan and capture output

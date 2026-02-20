@@ -154,6 +154,11 @@ echo "VERSION=v1.0.0" >> .env
 # Deploy
 docker-compose -f docker-compose.iam-registry.yml up -d
 
+> 💡 **Runtime dependencies:** in addition to generating `.env`, the new
+> `entrypoint-iam.sh` will execute `composer install` and `npm install && npm run build`
+> at container startup. This ensures a mounted or freshly cloned app is ready
+> without rebuilding the image. (Previous images used `entrypoint-registry.sh`.)
+
 > 💡 **Env runtime**: image dibuat sekali saja; semua pengaturan Laravel (APP_URL, DB_HOST, AWS_*, dsb.) dibaca dari variabel container saat start via `environment:` atau `env_file:`. Ubah nilai di `env/.env.iam` atau di `docker-compose` tanpa perlu rebuild — entrypoint akan men-generate ulang `.env` sebelum caching.
 ```
 
@@ -165,8 +170,9 @@ docker-compose -f docker-compose.iam-registry.yml up -d
 siimut-image-docker/
 ├── DockerNew/
 │   ├── php/
-│   │   ├── Dockerfile.iam-registry       # Dockerfile untuk IAM production
-│   │   └── entrypoint-registry.sh        # Entrypoint yang copy public/ ke volume
+│   │   ├── Dockerfile.iam-registry       # Dockerfile untuk IAM production (uses entrypoint-iam.sh)
+│   │   ├── entrypoint-registry.sh        # Legacy registry entrypoint (kept for reference)
+│   │   └── entrypoint-iam.sh             # New IAM-specific entrypoint; runs composer/npm/build at container start
 │   └── caddy/
 │       └── Caddyfile.iam                 # Config Caddy untuk IAM
 ├── env/

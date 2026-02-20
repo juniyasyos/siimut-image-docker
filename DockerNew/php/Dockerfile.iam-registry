@@ -159,7 +159,8 @@ RUN set -eux; \
     fi
 
 # Entrypoint untuk copy public/ ke shared volume saat startup
-COPY DockerNew/php/entrypoint-registry.sh /usr/local/bin/entrypoint.sh
+# use IAM-specific script that also installs runtime deps
+COPY DockerNew/php/entrypoint-iam.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 9000

@@ -79,7 +79,10 @@ docker build -f DockerNew/php/Dockerfile.siimut-registry \
 
 ## 3️⃣ ENTRYPOINT STAGE (saat container start)
 
-### 📋 Flow (entrypoint-registry.sh):
+### 📋 Flow (entrypoint-iam.sh / entrypoint-registry.sh):
+
+*(IAM build now uses entrypoint-iam.sh which wraps the original registry logic and
+adds runtime composer/npm steps)*
 ```
 Container START
 ├─ Read: APP_ENV, APP_WORKDIR dari ENV vars (docker-compose)
@@ -229,7 +232,7 @@ Container sudah NOT immutable karena:
    Padahal .env.siimut set use_sso=false (development!)
    ```
 
-4. **entrypoint-registry.sh jalankan switch-auth-mode.sh dev**
+4. **entrypoint-iam.sh (IAM) atau entrypoint-registry.sh jalankan switch-auth-mode.sh dev**
    ```
    Tapi ini update .env yang volume-mount dari host
    Host harus punya artisan untuk cache:clear

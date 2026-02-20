@@ -13,7 +13,7 @@ fi
 # Registry configuration
 REGISTRY_URL="${REGISTRY_URL:-localhost:5000}"  # Change this to your registry
 IMAGE_NAME="siimut"
-TAG="dev"
+TAG="dev-v3"
 
 # Full image paths
 LOCAL_IMAGE="${IMAGE_NAME}:${TAG}"
@@ -46,7 +46,6 @@ echo "🕒 Build timestamp: ${BUILD_TIMESTAMP}"
 echo ""
 
 docker build \
-  --no-cache \
   --progress=plain \
   --build-arg APP_DIR=siimut \
   --build-arg APP_NAME="SIIMUT Application" \

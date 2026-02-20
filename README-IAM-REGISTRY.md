@@ -153,6 +153,8 @@ echo "VERSION=v1.0.0" >> .env
 
 # Deploy
 docker-compose -f docker-compose.iam-registry.yml up -d
+
+> 💡 **Env runtime**: image dibuat sekali saja; semua pengaturan Laravel (APP_URL, DB_HOST, AWS_*, dsb.) dibaca dari variabel container saat start via `environment:` atau `env_file:`. Ubah nilai di `env/.env.iam` atau di `docker-compose` tanpa perlu rebuild — entrypoint akan men-generate ulang `.env` sebelum caching.
 ```
 
 ---

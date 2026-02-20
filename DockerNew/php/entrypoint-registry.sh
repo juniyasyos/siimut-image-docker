@@ -10,6 +10,41 @@ PUBLIC_VOLUME="${PUBLIC_VOLUME:-/var/www/public-shared}"
 echo "📁 APP_WORKDIR=${APP_WORKDIR}"
 cd "${APP_WORKDIR}"
 
+# ------------------------------------------------------------------
+# dynamic .env generation
+# build a fresh .env from whatever environment variables are present
+# this lets us push the same image and configure everything at runtime
+# ------------------------------------------------------------------
+echo "🧩 Generating .env from runtime environment variables"
+
+# start from example so defaults are preserved; if none, create empty
+if [ -f .env.example ]; then
+    cp .env.example .env
+else
+    : > .env
+fi
+
+# helper that inserts or replaces a key in the file
+set_env() {
+    local key="$1" value="$2"
+    if grep -q "^${key}=" .env 2>/dev/null; then
+        sed -i "s~^${key}=.*~${key}=${value}~" .env
+    else
+        printf '%s=%s\n' "$key" "$value" >> .env
+    fi
+}
+
+# list of variables we care about (add more as needed)
+for var in APP_ENV APP_WORKDIR PUBLIC_VOLUME APP_URL DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE SKIP_PUBLIC_SYNC AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT USE_SSO IAM_ENABLED; do
+    # expand the variable name stored in $var without adding extra spaces
+    eval val=\${$var}
+    if [ -n "$val" ]; then
+        set_env "$var" "$val"
+    fi
+done
+
+echo "✅ .env assembled"
+
 # Validate Laravel
 if [ ! -f artisan ]; then
     echo "❌ Laravel artisan not found in ${APP_WORKDIR}"

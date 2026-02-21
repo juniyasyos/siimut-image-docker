@@ -293,11 +293,18 @@ if [[ -f .env ]]; then
   fi
 fi
 
-# 7) Create storage link
-if [[ "$SIIMUT_STORAGE_LINK" == "true" ]] && [[ -f artisan ]]; then
+# 7) Create storage link (Laravel and manual fallback)
+if [[ -f artisan ]]; then
+  if [[ "$SIIMUT_STORAGE_LINK" == "true" ]]; then
+    if [[ ! -e public/storage ]] && [[ -d storage/app/public ]]; then
+      log "🔗 Creating storage link via artisan"
+      php artisan storage:link || warn "artisan storage:link failed"
+    fi
+  fi
+  # manual symlink in case artisan is unavailable or link was removed
   if [[ ! -e public/storage ]] && [[ -d storage/app/public ]]; then
-    log "🔗 Creating storage link"
-    php artisan storage:link || warn "Storage link creation failed"
+    log "🔗 Creating fallback storage symlink"
+    ln -s ../storage/app/public public/storage || warn "manual symlink creation failed"
   fi
 fi
 

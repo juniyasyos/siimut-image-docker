@@ -71,13 +71,22 @@ BUILD_DATE_TAG=$(date +%Y%m%d-%H%M%S)
 echo ""
 echo "📦 Building Docker image (no cache to ensure fresh source)..."
 echo "🕒 Build timestamp: ${BUILD_TIMESTAMP}"
+
+# kumpulkan build-arg dari lingkungan (jika di-set)
+_vars=(APP_DIR APP_NAME APP_ENV DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE \
+       AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT)
+BUILD_ARGS=()
+for v in "${_vars[@]}"; do
+    if [ -n "${!v}" ]; then
+        BUILD_ARGS+=(--build-arg "$v=${!v}")
+    fi
+done
+BUILD_ARGS+=(--build-arg "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}")
+
 docker build \
   --no-cache \
   -f DockerNew/php/Dockerfile.siimut-registry \
-  --build-arg APP_DIR="${APP_DIR}" \
-  --build-arg APP_NAME="SIIMUT Application" \
-  --build-arg APP_ENV=production \
-  --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
+  "${BUILD_ARGS[@]}" \
   -t "${IMAGE_TAG}" \
   -t "${IMAGE_NAME}:latest" \
   -t "${IMAGE_NAME}:${BUILD_DATE_TAG}" \

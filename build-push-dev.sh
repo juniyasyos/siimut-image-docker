@@ -5,10 +5,19 @@ set -e
 # Build and Push SIIMUT Image for Development/Testing
 # =========================
 
-# Load REGISTRY_URL from .env if exists
-if [ -f ".env" ]; then
-    export $(grep -v '^#' .env | grep REGISTRY_URL | xargs)
+# Load configuration from .env and env/.env.siimut (if any)
+# REGISTRY_URL biasanya di .env, variabel lainnya dapat berada di env/.env.siimut
+if [ -f "env/.env.siimut" ]; then
+    # ekspor semua key=value (abaikan komentar)
+    export $(grep -v '^#' env/.env.siimut | xargs 2>/dev/null) || true
 fi
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs 2>/dev/null) || true
+fi
+# Registry configuration
+REGISTRY_URL="${REGISTRY_URL:-localhost:5000}"  # Change this to your registry
+IMAGE_NAME="siimut"
+TAG="dev-v3"
 
 # Registry configuration
 REGISTRY_URL="${REGISTRY_URL:-localhost:5000}"  # Change this to your registry
@@ -39,18 +48,29 @@ echo "📝 Recent changes in site/siimut:"
 find site/siimut/public/build -type f -name "*.js" -o -name "*.css" -o -name "manifest.json" 2>/dev/null | head -5 || echo "  (no recent build artifacts found)"
 echo ""
 
-# Build Docker image
-echo "📦 Building Docker image (no cache to ensure fresh source)..."
+# Buat daftar build-arg berdasarkan variabel lingkungan yang tersedia
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+echo "📦 Building Docker image (no cache to ensure fresh source)..."
 echo "🕒 Build timestamp: ${BUILD_TIMESTAMP}"
 echo ""
 
+# array nama variabel yang ingin kita teruskan ke build
+_vars=(APP_DIR APP_NAME APP_ENV DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE \
+       AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT)
+BUILD_ARGS=()
+for v in "${_vars[@]}"; do
+    if [ -n "${!v}" ]; then
+        BUILD_ARGS+=(--build-arg "$v=${!v}")
+    fi
+done
+# tambahkan TIMESTAMP terlepas dari apapun
+BUILD_ARGS+=(--build-arg "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}")
+
+# jalankan build
+
 docker build \
   --progress=plain \
-  --build-arg APP_DIR=siimut \
-  --build-arg APP_NAME="SIIMUT Application" \
-  --build-arg APP_ENV=production \
-  --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
+  "${BUILD_ARGS[@]}" \
   -f DockerNew/php/Dockerfile.siimut-registry \
   -t "${LOCAL_IMAGE}" \
   -t "${REGISTRY_IMAGE}" \

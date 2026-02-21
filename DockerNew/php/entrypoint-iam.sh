@@ -45,20 +45,16 @@ echo "✅ .env assembled"
 # -----------------------------------------------------
 
 # Composer
-if [ -f composer.json ]; then
-    echo "📦 Installing Composer dependencies (runtime)"
-    composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true
-    echo "✅ Composer dependencies installed"
-fi
+echo "📦 Installing Composer dependencies (runtime)"
+composer install --optimize-autoloader --no-interaction --no-progress || true
+echo "✅ Composer dependencies installed"
 
 # Node/npm build
-if [ -f package.json ]; then
-    echo "📦 Installing NPM packages (runtime)"
-    npm install --no-save || true
-    echo "🔨 Running frontend build"
-    npm run build || true
-    echo "✅ Frontend assets built"
-fi
+echo "📦 Installing NPM packages (runtime)"
+npm install --no-save || true
+echo "🔨 Running frontend build"
+npm run build || true
+echo "✅ Frontend assets built"
 
 # Validate Laravel
 if [ ! -f artisan ]; then

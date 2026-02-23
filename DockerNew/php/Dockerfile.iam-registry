@@ -84,6 +84,13 @@ RUN set -eux; \
     else \
       echo ">> No composer.json found"; \
     fi; \
+    # build frontend assets if app has package.json
+    if [ -f package.json ]; then \
+      echo ">> Installing npm packages..."; \
+      npm install --no-save; \
+      echo ">> Building frontend assets..."; \
+      npm run build || echo "⚠️ npm build failed"; \
+    fi; \
     rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
 
 # =========================

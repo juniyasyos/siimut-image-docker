@@ -41,20 +41,12 @@ done
 echo "✅ .env assembled"
 
 # -----------------------------------------------------
-# runtime dependency install (composer/npm)
-# -----------------------------------------------------
-
-# Composer
-echo "📦 Installing Composer dependencies (runtime)"
-composer install --optimize-autoloader --no-interaction --no-progress || true
-echo "✅ Composer dependencies installed"
-
-# Node/npm build
-echo "📦 Installing NPM packages (runtime)"
-npm install --no-save || true
-echo "🔨 Running frontend build"
-npm run build || true
-echo "✅ Frontend assets built"
+# runtime dependency install removed: handled at build-time
+# ------------------------------------------------------------------
+# composer/npm install & build are executed during image build to
+# ensure the image already contains all dependencies and compiled assets.
+# keeping them here would rebuild on every container start and cause
+# problems with volume mounts and cache invalidation.
 
 # Validate Laravel
 if [ ! -f artisan ]; then

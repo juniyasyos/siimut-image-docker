@@ -129,27 +129,31 @@ else
     echo "⚠️  Skipping dependency checks/install and npm build per --no-install-dependencies flag"
 fi
 
-# Validate Laravel setup
-echo "🔍 Validating Laravel setup..."
-if [ -f "artisan" ]; then
-    php artisan --version
-    echo "✅ Laravel OK"
+if [ "$NO_DEPS" = false ]; then
+    # Validate Laravel setup
+    echo "🔍 Validating Laravel setup..."
+    if [ -f "artisan" ]; then
+        php artisan --version
+        echo "✅ Laravel OK"
+    else
+        echo "❌ artisan not found. Not a valid Laravel app."
+        exit 1
+    fi
+
+    # Test basic functionality (optional artisan commands)
+    echo "🧪 Running basic tests..."
+    php artisan config:cache --quiet || echo "⚠️ config:cache failed (continuing)"
+    php artisan route:cache --quiet || echo "⚠️ route:cache failed (continuing)"
+    php artisan view:cache --quiet || echo "⚠️ view:cache failed (continuing)"
+
+    # Publish Livewire assets (IMPORTANT for form submissions)
+    echo "📦 Publishing Livewire assets..."
+    php artisan livewire:publish --assets --quiet || echo "⚠️ livewire:publish failed (continuing)"
+
+    echo "✅ Livewire assets published to public/vendor/livewire/"
 else
-    echo "❌ artisan not found. Not a valid Laravel app."
-    exit 1
+    echo "⚠️  Skipping Laravel validation, tests, and Livewire publish per --no-install-dependencies flag"
 fi
-
-# Test basic functionality (optional artisan commands)
-echo "🧪 Running basic tests..."
-php artisan config:cache --quiet || echo "⚠️ config:cache failed (continuing)"
-php artisan route:cache --quiet || echo "⚠️ route:cache failed (continuing)"
-php artisan view:cache --quiet || echo "⚠️ view:cache failed (continuing)"
-
-# Publish Livewire assets (IMPORTANT for form submissions)
-echo "📦 Publishing Livewire assets..."
-php artisan livewire:publish --assets --quiet || echo "⚠️ livewire:publish failed (continuing)"
-
-echo "✅ Livewire assets published to public/vendor/livewire/"
 
 cd "../../"
 echo ""

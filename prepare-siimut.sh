@@ -71,44 +71,62 @@ echo ""
 echo "🔍 Starting local verification and build preparation..."
 cd "${SITE_DIR}"
 
+# parse arguments
+NO_DEPS=false
+for arg in "$@"; do
+    case $arg in
+        --no-install-dependencies|--no-install-depedencies)
+            NO_DEPS=true
+            shift
+            ;;
+        *)
+            # ignore other args
+            ;;
+    esac
+done
+
 # Check dependencies
-echo "🔧 Checking dependencies..."
-if ! command -v php &> /dev/null; then
-    echo "❌ PHP not found. Please install PHP 8.1+."
-    exit 1
-fi
-if ! command -v composer &> /dev/null; then
-    echo "❌ Composer not found. Please install Composer."
-    exit 1
-fi
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js not found. Please install Node.js 16+."
-    exit 1
-fi
-if ! command -v npm &> /dev/null; then
-    echo "❌ npm not found. Please install npm."
-    exit 1
-fi
-echo "✅ Dependencies OK"
+if [ "$NO_DEPS" = false ]; then
+    echo "🔧 Checking dependencies..."
+    if ! command -v php &> /dev/null; then
+        echo "❌ PHP not found. Please install PHP 8.1+."
+        exit 1
+    fi
+    if ! command -v composer &> /dev/null; then
+        echo "❌ Composer not found. Please install Composer."
+        exit 1
+    fi
+    if ! command -v node &> /dev/null; then
+        echo "❌ Node.js not found. Please install Node.js 16+."
+        exit 1
+    fi
+    if ! command -v npm &> /dev/null; then
+        echo "❌ npm not found. Please install npm."
+        exit 1
+    fi
+    echo "✅ Dependencies OK"
 
-# Install Composer dependencies
-echo "📦 Installing Composer dependencies..."
-if [ -f "composer.json" ]; then
-    composer install --no-interaction --optimize-autoloader
-    echo "✅ Composer install complete"
-else
-    echo "⚠️  composer.json not found, skipping Composer install"
-fi
+    # Install Composer dependencies
+    echo "📦 Installing Composer dependencies..."
+    if [ -f "composer.json" ]; then
+        composer install --no-interaction --optimize-autoloader
+        echo "✅ Composer install complete"
+    else
+        echo "⚠️  composer.json not found, skipping Composer install"
+    fi
 
-# Install npm dependencies and build frontend
-echo "📦 Installing npm dependencies..."
-if [ -f "package.json" ]; then
-    npm install
-    echo "🔨 Building frontend assets..."
-    npm run build
-    echo "✅ Frontend build complete"
+    # Install npm dependencies and build frontend
+    echo "📦 Installing npm dependencies..."
+    if [ -f "package.json" ]; then
+        npm install
+        echo "🔨 Building frontend assets..."
+        npm run build
+        echo "✅ Frontend build complete"
+    else
+        echo "⚠️  package.json not found, skipping npm build"
+    fi
 else
-    echo "⚠️  package.json not found, skipping npm build"
+    echo "⚠️  Skipping dependency checks/install and npm build per --no-install-dependencies flag"
 fi
 
 # Validate Laravel setup

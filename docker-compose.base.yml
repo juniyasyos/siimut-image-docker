@@ -17,10 +17,13 @@ services:
     ports:
       - "9090:9090"   # S3 API
       - "9091:9091"   # Console UI
-    # run MinIO on port 9090 instead of default 9000
-    command: server /data \
-              --address ":9090" \
-              --console-address ":9091"
+    command:
+      - server
+      - /data
+      - --address
+      - ":9090"
+      - --console-address
+      - ":9091"
     deploy:
       resources:
         limits:

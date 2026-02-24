@@ -17,7 +17,10 @@ services:
     ports:
       - "9090:9090"   # S3 API
       - "9091:9091"   # Console UI
-    command: server /data --console-address ":9091"
+    # run MinIO on port 9090 instead of default 9000
+    command: server /data \
+              --address ":9090" \
+              --console-address ":9091"
     deploy:
       resources:
         limits:
@@ -27,7 +30,8 @@ services:
           memory: 256M
           cpus: "0.15"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://192.168.1.9:9090/minio/health/ready"]
+      # since MinIO now listens on 9090 inside container
+      test: ["CMD-SHELL", "curl -f http://localhost:9090/minio/health/ready || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 12

@@ -135,6 +135,41 @@ while (true) {
 }
 '
 
+# ------------------------------------------------------------------
+# Wait for MinIO (S3 endpoint) to be available
+# ------------------------------------------------------------------
+echo "⏳ Waiting for MinIO service at ${AWS_ENDPOINT:-<unset>}"
+
+# extract host and port; default port 80 if missing
+minio_host=$(echo "${AWS_ENDPOINT}" | sed -E 's~https?://~~' | cut -d':' -f1)
+minio_port=$(echo "${AWS_ENDPOINT}" | awk -F: '{print $NF}')
+if [ -z "$minio_port" ] || [ "$minio_port" = "$minio_host" ]; then
+    minio_port=80
+fi
+
+echo "🔍 Resolving host '$minio_host'..."
+if getent hosts "$minio_host" >/dev/null 2>&1; then
+    echo "✅ DNS lookup OK"
+else
+    echo "⚠️  DNS lookup failed for $minio_host"
+fi
+
+start=$(date +%s)
+timeout=60
+while true; do
+    if curl -fsS --max-time 2 "${AWS_ENDPOINT}" >/dev/null 2>&1; then
+        echo "✅ MinIO reachable at $minio_host:$minio_port"
+        break
+    fi
+    if [ $(( $(date +%s) - start )) -gt $timeout ]; then
+        echo "❌ Timeout waiting for MinIO ($timeout s)"
+        break
+    fi
+    echo "… waiting for MinIO $minio_host:$minio_port"
+    sleep 2
+done
+
+
 # Fix permissions BEFORE cache warming (penting!)
 echo "🔧 Setting up permissions..."
 if [ -d storage ]; then

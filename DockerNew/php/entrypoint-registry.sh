@@ -204,6 +204,35 @@ done
 
 echo "✅ IAM App ready at: $(date)"
 
+# show minio configuration so we can inspect at runtime
+echo "🌐 Minio endpoint (AWS_ENDPOINT)=${AWS_ENDPOINT:-<unset>}"
+echo "🌐 Minio bucket (AWS_BUCKET)=${AWS_BUCKET:-<unset>}"
+
+# check port numbers extracted from AWS_ENDPOINT
+if [ -n "${AWS_ENDPOINT}" ]; then
+    port=$(echo "$AWS_ENDPOINT" | awk -F: '{print $NF}')
+    echo "🔢 Minio endpoint port detected: $port"
+    if [ "$port" != "9090" ]; then
+        echo "⚠️  unexpected port for AWS_ENDPOINT (expected 9090)"
+    fi
+fi
+
+# optionally show the console port separately (9091)
+echo "🔐 Minio console is usually at port 9091 (not used by app)"
+
+# attempt simple connectivity test (requires curl in image)
+echo "🔗 Testing connectivity to Minio..."
+if command -v curl >/dev/null 2>&1; then
+    if curl -fsS --max-time 5 "${AWS_ENDPOINT:-}" >/dev/null 2>&1; then
+        echo "✅ Able to reach Minio at ${AWS_ENDPOINT:-}"
+    else
+        echo "❌ Cannot reach Minio at ${AWS_ENDPOINT:-} (curl failed)"
+    fi
+else
+    echo "⚠️  curl not available; skipping network check"
+fi
+
+
 # Execute main command
 if [ $# -eq 0 ]; then
     set -- php-fpm -F

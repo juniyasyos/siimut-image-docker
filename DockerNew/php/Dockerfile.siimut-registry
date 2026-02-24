@@ -145,6 +145,16 @@ ENV APP_ENV=production \
     AWS_BUCKET=${AWS_BUCKET:-} \
     AWS_URL=${AWS_URL:-} \
     AWS_ENDPOINT=${AWS_ENDPOINT:-}
+# show minio config at build time (cannot verify connectivity during build because network
+# to the "minio" service may not exist yet). this helps to ensure the correct arg was
+# passed through from docker-compose or build command.
+RUN echo "[build] AWS_ENDPOINT=${AWS_ENDPOINT:-<unset>}" && \
+    echo "[build] AWS_URL=${AWS_URL:-<unset>}" && \
+    # ensure docker-compose passes port 9090 in build args
+    echo "[build] extracted port=$(echo \"${AWS_ENDPOINT:-}\" | awk -F: '{print $NF}')" && \
+    if [ "$(echo \"${AWS_ENDPOINT:-}\" | awk -F: '{print $NF}')" != "9090" ]; then \
+        echo "[build] WARNING: AWS_ENDPOINT port not 9090"; \
+    fi
 
 WORKDIR ${APP_WORKDIR}
 

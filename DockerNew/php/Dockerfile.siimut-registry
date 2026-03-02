@@ -28,8 +28,8 @@ RUN apk add --no-cache \
   # igbinary
   && pecl install igbinary \
   && docker-php-ext-enable igbinary \
-  # APCu (optional, skip if unavailable)
-  && (pecl install apcu && docker-php-ext-enable apcu) || echo "APCu not available, skipping" \
+  # APCu (optional)
+  && (pecl install apcu && docker-php-ext-enable --ini-name 0-apc.ini apcu) || echo "APCu not available, skipping" \
   # Cleanup
   && apk del --no-network $PHPIZE_DEPS linux-headers \
   && rm -rf /var/cache/apk/* /tmp/*

@@ -65,6 +65,7 @@ RUN set -eux; \
       cd /tmp/composer-files; \
       composer install \
         --no-interaction \
+        --no-scripts \
         --no-autoloader; \
       cp -r vendor/ /app/; \
     fi; \

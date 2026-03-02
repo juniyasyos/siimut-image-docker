@@ -102,7 +102,7 @@ RUN set -eux; \
     # Finalize composer setup
     if [ -f composer.json ]; then \
       echo ">> Finalizing composer setup..."; \
-      composer dump-autoload --optimize --classmap-authoritative; \
+      composer dump-autoload --optimize --classmap-authoritative --no-scripts; \
     else \
       echo ">> No composer.json found"; \
     fi; \
@@ -116,6 +116,7 @@ RUN set -eux; \
     rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
 
 # =========================
+
 # Stage 3: Runtime
 # =========================
 FROM base AS runtime
@@ -235,7 +236,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 9000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD php -r "exit(extension_loaded('opcache') && extension_loaded('apcu') ? 0 : 1);"
+  CMD php -r "exit(extension_loaded('opcache') ? 0 : 1);"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm", "-F"]

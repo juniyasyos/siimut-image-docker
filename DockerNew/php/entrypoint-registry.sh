@@ -217,6 +217,10 @@ su-exec www php artisan route:clear    >/dev/null 2>&1 || true
 su-exec www php artisan view:clear     >/dev/null 2>&1 || true
 su-exec www php artisan event:clear    >/dev/null 2>&1 || true
 
+# Discover packages (was skipped at build time with --no-scripts)
+echo "🔍 Running package:discover..."
+su-exec www php artisan package:discover --ansi 2>&1 || echo "⚠️ package:discover failed"
+
 # Rebuild caches (skip route:cache - Livewire routes incompatible with caching)
 echo "♻️  Rebuilding caches..."
 su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"

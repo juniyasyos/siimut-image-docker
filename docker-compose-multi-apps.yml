@@ -64,7 +64,7 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: siimut
-        AWS_URL: http://192.168.1.9:9090/siimut
+        AWS_URL: http://192.168.1.4:9090/siimut
         AWS_ENDPOINT: http://minio:9090
     container_name: siimut-app
     working_dir: /var/www/siimut
@@ -72,7 +72,7 @@ services:
       APP_ENV: production
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.9:8000"
+      APP_URL: "http://192.168.1.4:8000"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
       DB_PASSWORD: siimut-password
@@ -81,13 +81,13 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_BUCKET: siimut
-      AWS_URL: http://192.168.1.9:9090/siimut
+      AWS_URL: http://192.168.1.4:9090/siimut
       AWS_ENDPOINT: http://minio:9090
       # SSO Configuration - Override from compose
       USE_SSO: "false"
       IAM_ENABLED: "false"
-      # IAM_HOST: "http://192.168.1.9:8100"
-      # IAM_BASE_URL: "http://192.168.1.9:8100"
+      # IAM_HOST: "http://192.168.1.4:8100"
+      # IAM_BASE_URL: "http://192.168.1.4:8100"
       # IAM_LOGIN_ROUTE: "/siimut/login"
       # IAM_CALLBACK_ROUTE: "/sso/callback"
     volumes:
@@ -127,7 +127,7 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: siimut
-        AWS_URL: http://192.168.1.9:9090/siimut
+        AWS_URL: http://192.168.1.4:9090/siimut
         AWS_ENDPOINT: http://minio:9090
     container_name: siimut-queue
     working_dir: /var/www/siimut
@@ -166,7 +166,7 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: siimut
-        AWS_URL: http://192.168.1.9:9090/siimut
+        AWS_URL: http://192.168.1.4:9090/siimut
         AWS_ENDPOINT: http://minio:9090
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
@@ -213,7 +213,7 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://192.168.1.9:8100"
+      APP_URL: "http://192.168.1.4:8100"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage

@@ -11,7 +11,7 @@ if [ -f "env/.env.siimut" ]; then
 fi
 
 APP_DIR="${APP_DIR:-siimut}"
-REPO_URL="${REPO_URL:-https://github.com/juniyasyos/siimut.git}"
+REPO_URL="${REPO_URL:-https://github.com/juniyasyos/si-imut.git}"
 SITE_DIR="site/${APP_DIR}"
 
 echo "======================================"

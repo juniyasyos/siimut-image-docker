@@ -103,6 +103,8 @@ RUN set -eux; \
     if [ -f composer.json ]; then \
       echo ">> Finalizing composer setup..."; \
       composer dump-autoload --optimize --classmap-authoritative --no-scripts; \
+      echo ">> Running artisan optimize..."; \
+      php artisan optimize || echo ">> artisan optimize skipped (no .env / APP_KEY not set)"; \
     else \
       echo ">> No composer.json found"; \
     fi; \
@@ -202,7 +204,7 @@ RUN set -eux; \
   sed -ri 's|^;?pm\.start_servers =.*|pm.start_servers = 8|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.min_spare_servers =.*|pm.min_spare_servers = 4|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.max_spare_servers =.*|pm.max_spare_servers = 16|' /usr/local/etc/php-fpm.d/www.conf; \
-  sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests = 1000|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests =  1000|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf
 
 # Copy app from deps stage

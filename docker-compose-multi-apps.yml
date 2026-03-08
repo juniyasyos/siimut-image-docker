@@ -140,16 +140,21 @@ services:
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
     entrypoint: ["php"]
     command: >
-      artisan queue:work --sleep=3 --tries=3
+      artisan queue:work
+        --sleep=5
+        --tries=3
+        --timeout=120
+        --max-jobs=500
+        --max-time=3600
     restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 512M
-          cpus: "1.0"    # ditingkatkan untuk memberi lebih banyak core
+          cpus: "1.0"
         reservations:
-          memory: 256M
-          cpus: "0.5"
+          memory: 128M
+          cpus: "0.25"
 
   scheduler-siimut:
     build:

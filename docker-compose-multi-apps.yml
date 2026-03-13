@@ -409,10 +409,10 @@ volumes:
     driver: local
 
   # ====== PUBLIC ASSETS (untuk Nginx serve static files) ======
-  siimut_public:
-    driver: local
-  # ikp_public:
+  # siimut_public:
   #   driver: local
+  ikp_public:
+    driver: local
   # iam_public:
   #   driver: local
 

@@ -40,9 +40,9 @@ run_mysql_cmd() {
     local query=$5
     
     if [ -z "$database" ]; then
-        docker-compose -f "$COMPOSE_FILE" exec -T db mysql -h "$host" -u "$user" -p"$pass" -e "$query"
+        docker compose -f "$COMPOSE_FILE" exec -T db mysql -h "$host" -u "$user" -p"$pass" -e "$query"
     else
-        docker-compose -f "$COMPOSE_FILE" exec -T db mysql -h "$host" -u "$user" -p"$pass" "$database" -e "$query"
+        docker compose -f "$COMPOSE_FILE" exec -T db mysql -h "$host" -u "$user" -p"$pass" "$database" -e "$query"
     fi
 }
 
@@ -51,11 +51,11 @@ run_mysql_cmd() {
 # ============================================================================
 print_section "Test 1: Cek Status Container"
 
-if docker-compose -f "$COMPOSE_FILE" ps | grep -q "database-service"; then
+if docker compose -f "$COMPOSE_FILE" ps | grep -q "database-service"; then
     echo -e "${GREEN}✓ Container '$DB_CONTAINER' sedang berjalan${NC}"
 else
     echo -e "${RED}✗ Container '$DB_CONTAINER' TIDAK berjalan!${NC}"
-    echo "   Jalankan: docker-compose -f $COMPOSE_FILE up -d"
+    echo "   Jalankan: docker compose -f $COMPOSE_FILE up -d"
     exit 1
 fi
 
@@ -141,7 +141,7 @@ run_mysql_cmd "$DB_ROOT_USER" "$DB_ROOT_PASS" "$DB_HOST" "mysql" "SHOW GRANTS FO
 # ============================================================================
 print_section "Test 10: Ukuran Database"
 
-docker-compose -f "$COMPOSE_FILE" exec -T db mysql -h "$DB_HOST" -u "$DB_ROOT_USER" -p"$DB_ROOT_PASS" -e "SELECT table_schema AS Database, ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS Size_MB FROM information_schema.tables GROUP BY table_schema ORDER BY Size_MB DESC;" 2>/dev/null || echo "   (Database masih kosong)"
+docker compose -f "$COMPOSE_FILE" exec -T db mysql -h "$DB_HOST" -u "$DB_ROOT_USER" -p"$DB_ROOT_PASS" -e "SELECT table_schema AS Database, ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS Size_MB FROM information_schema.tables GROUP BY table_schema ORDER BY Size_MB DESC;" 2>/dev/null || echo "   (Database masih kosong)"
 
 # ============================================================================
 # Summary
@@ -167,10 +167,10 @@ ${GREEN}Database Testing Completed!${NC}
    - ikp_readonly / ikp@ReadOnly2025!
 
 📝 Quick Connect Commands:
-   docker-compose -f $COMPOSE_FILE exec db mysql -h db -u root -p'rootpass123'
-   docker-compose -f $COMPOSE_FILE exec db mysql -h db -u siimut_user -p'siimut-password' siimut_db
-   docker-compose -f $COMPOSE_FILE exec db mysql -h db -u iam_user -p'iam-password' iam_db
-   docker-compose -f $COMPOSE_FILE exec db mysql -h db -u ikp_user -p'ikp-password' ikp_db
+   docker compose -f $COMPOSE_FILE exec db mysql -h db -u root -p'rootpass123'
+   docker compose -f $COMPOSE_FILE exec db mysql -h db -u siimut_user -p'siimut-password' siimut_db
+   docker compose -f $COMPOSE_FILE exec db mysql -h db -u iam_user -p'iam-password' iam_db
+   docker compose -f $COMPOSE_FILE exec db mysql -h db -u ikp_user -p'ikp-password' ikp_db
 
 🔧 More info: cat DATABASE-CREDENTIALS.md
 EOF

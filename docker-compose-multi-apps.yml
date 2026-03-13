@@ -438,5 +438,7 @@ volumes:
 ####################################################################################################
 # Networks - Using default from compose.base.yml
 ####################################################################################################
-# Networks are inherited from compose.base.yml
-# Just ensure services connect to the shared network from base compose
+networks:
+  default:
+    name: rsch-srv_default
+    external: true

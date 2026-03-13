@@ -8,6 +8,8 @@
 -- =================================================
 CREATE DATABASE IF NOT EXISTS siimut_db
   CHARACTER SET utf8mb4
+
+
   COLLATE utf8mb4_unicode_ci;
 
 -- Create main service user (R/W FULL)
@@ -45,6 +47,28 @@ CREATE USER IF NOT EXISTS 'iam_readonly'@'%'
   IDENTIFIED BY 'Iam@ReadOnly2025!';
 
 GRANT SELECT ON iam_db.* TO 'iam_readonly'@'%';
+
+
+-- =================================================
+--  IKP Database
+-- =================================================
+CREATE DATABASE IF NOT EXISTS ikp_db
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+-- Create IAM user (R/W FULL)
+CREATE USER IF NOT EXISTS 'ikp_user'@'%'
+  IDENTIFIED BY 'ikp-password';
+
+GRANT ALL PRIVILEGES
+  ON ikp_db.* TO 'ikp_user'@'%';
+
+
+-- Optional: readonly user
+CREATE USER IF NOT EXISTS 'ikp_readonly'@'%'
+  IDENTIFIED BY 'ikp@ReadOnly2025!';
+
+GRANT SELECT ON ikp_db.* TO 'ikp_readonly'@'%';
 
 
 -- =================================================

@@ -262,88 +262,88 @@ services:
       retries: 3
       start_period: 60s
 
-  queue-ikp:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.ikp-registry
-      args:
-        APP_DIR: ikp
-        APP_NAME: "IKP Application"
-        APP_ENV: production
-        DB_HOST: database-service
-        DB_USERNAME: ikp_user
-        DB_PASSWORD: ikp-password
-        DB_DATABASE: ikp_db
-        AWS_ACCESS_KEY_ID: admin
-        AWS_SECRET_ACCESS_KEY: password
-        AWS_BUCKET: ikp
-        AWS_URL: http://192.168.1.9:9090/ikp
-        AWS_ENDPOINT: http://minio:9090
-    container_name: ikp-queue
-    working_dir: /var/www/ikp
-    environment:
-      DB_HOST: database-service
-      DB_USER: ikp_user
-      DB_PASSWORD: ikp-password
-    volumes:
-      - ikp_storage:/var/www/ikp/storage
-      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan queue:work
-        --sleep=5
-        --tries=3
-        --timeout=120
-        --max-jobs=500
-        --max-time=3600
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "1.0"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
+  # queue-ikp:
+  #   build:
+  #     context: .
+  #     dockerfile: DockerNew/php/Dockerfile.ikp-registry
+  #     args:
+  #       APP_DIR: ikp
+  #       APP_NAME: "IKP Application"
+  #       APP_ENV: production
+  #       DB_HOST: database-service
+  #       DB_USERNAME: ikp_user
+  #       DB_PASSWORD: ikp-password
+  #       DB_DATABASE: ikp_db
+  #       AWS_ACCESS_KEY_ID: admin
+  #       AWS_SECRET_ACCESS_KEY: password
+  #       AWS_BUCKET: ikp
+  #       AWS_URL: http://192.168.1.9:9090/ikp
+  #       AWS_ENDPOINT: http://minio:9090
+  #   container_name: ikp-queue
+  #   working_dir: /var/www/ikp
+  #   environment:
+  #     DB_HOST: database-service
+  #     DB_USER: ikp_user
+  #     DB_PASSWORD: ikp-password
+  #   volumes:
+  #     - ikp_storage:/var/www/ikp/storage
+  #     - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
+  #   entrypoint: ["php"]
+  #   command: >
+  #     artisan queue:work
+  #       --sleep=5
+  #       --tries=3
+  #       --timeout=120
+  #       --max-jobs=500
+  #       --max-time=3600
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 512M
+  #         cpus: "1.0"
+  #       reservations:
+  #         memory: 128M
+  #         cpus: "0.25"
 
-  scheduler-ikp:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.ikp-registry
-      args:
-        APP_DIR: ikp
-        APP_NAME: "IKP Application"
-        APP_ENV: production
-        DB_HOST: database-service
-        DB_USERNAME: ikp_user
-        DB_PASSWORD: ikp-password
-        DB_DATABASE: ikp_db
-        AWS_ACCESS_KEY_ID: admin
-        AWS_SECRET_ACCESS_KEY: password
-        AWS_BUCKET: ikp
-        AWS_URL: http://192.168.1.9:9090/ikp
-        AWS_ENDPOINT: http://minio:9090
-    container_name: ikp-scheduler
-    working_dir: /var/www/ikp
-    environment:
-      DB_HOST: database-service
-      DB_USER: ikp_user
-      DB_PASSWORD: ikp-password
-    volumes:
-      - ikp_storage:/var/www/ikp/storage
-      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan schedule:work
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.25"
-        reservations:
-          memory: 128M
-          cpus: "0.125"
+  # scheduler-ikp:
+  #   build:
+  #     context: .
+  #     dockerfile: DockerNew/php/Dockerfile.ikp-registry
+  #     args:
+  #       APP_DIR: ikp
+  #       APP_NAME: "IKP Application"
+  #       APP_ENV: production
+  #       DB_HOST: database-service
+  #       DB_USERNAME: ikp_user
+  #       DB_PASSWORD: ikp-password
+  #       DB_DATABASE: ikp_db
+  #       AWS_ACCESS_KEY_ID: admin
+  #       AWS_SECRET_ACCESS_KEY: password
+  #       AWS_BUCKET: ikp
+  #       AWS_URL: http://192.168.1.9:9090/ikp
+  #       AWS_ENDPOINT: http://minio:9090
+  #   container_name: ikp-scheduler
+  #   working_dir: /var/www/ikp
+  #   environment:
+  #     DB_HOST: database-service
+  #     DB_USER: ikp_user
+  #     DB_PASSWORD: ikp-password
+  #   volumes:
+  #     - ikp_storage:/var/www/ikp/storage
+  #     - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
+  #   entrypoint: ["php"]
+  #   command: >
+  #     artisan schedule:work
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 256M
+  #         cpus: "0.25"
+  #       reservations:
+  #         memory: 128M
+  #         cpus: "0.125"
 
 
   ####################################################################################################

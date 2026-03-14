@@ -63,6 +63,13 @@ if [ ! -f ".env" ]; then
     fi
 fi
 
+# Ensure APP_KEY is set (generate if missing/empty)
+APP_KEY_VALUE=$(grep -E '^APP_KEY=' .env | head -1 | cut -d'=' -f2- || true)
+if [ -z "${APP_KEY_VALUE}" ]; then
+    echo "🔐 Generating APP_KEY..."
+    php artisan key:generate --force
+fi
+
 # Run switch-auth-mode.sh if exists (for SIIMUT)
 if [ -f "./switch-auth-mode.sh" ]; then
     echo "🔐 Setting authentication mode..."

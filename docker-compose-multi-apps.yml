@@ -35,11 +35,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: "0.3"
+          memory: 512M
+          cpus: "0.5"
         reservations:
-          memory: 128M
-          cpus: "0.1"
+          memory: 256M
+          cpus: "0.25"
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -382,11 +382,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G
-          cpus: "0.7"
+          memory: 2G
+          cpus: "1.0"
         reservations:
-          memory: 768M
-          cpus: "0.35"
+          memory: 1G
+          cpus: "0.5"
     healthcheck:
       test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
       interval: 30s

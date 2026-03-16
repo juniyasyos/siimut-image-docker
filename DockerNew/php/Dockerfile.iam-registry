@@ -159,10 +159,12 @@ COPY --from=deps --chown=www:www /app ${APP_WORKDIR}
 
 # Permissions
 RUN set -eux; \
-    if [ -d storage ]; then \
-      chown -R www:www storage bootstrap/cache; \
-      chmod -R ug+rwX storage bootstrap/cache; \
-    fi; \
+    # Ensure storage directories exist and are writable by the PHP user
+    mkdir -p storage storage/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache; \
+    touch storage/logs/laravel.log; \
+    chown -R www:www storage bootstrap/cache; \
+    chmod -R ug+rwX storage bootstrap/cache; \
+    chmod 664 storage/logs/laravel.log; \
     if [ -d public ]; then \
       chmod -R 755 public; \
     fi

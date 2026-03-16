@@ -130,38 +130,41 @@ while (true) {
 
 # Fix permissions BEFORE cache warming (penting!)
 echo "🔧 Setting up permissions..."
-if [ -d storage ]; then
-  # Buat direktori cache jika belum ada
-  mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views
-  mkdir -p storage/logs storage/app/public
-  mkdir -p bootstrap/cache
-  
-  # Create public/livewire symlink if not exists (Livewire asset serving)
-  if [ ! -L public/livewire ]; then
+# Ensure required folders exist even if storage/ is not committed or overridden by a mount
+mkdir -p storage storage/framework/cache storage/framework/sessions storage/framework/views
+mkdir -p storage/logs storage/app/public
+mkdir -p bootstrap/cache
+
+# Ensure Laravel log file exists and is writable (prevents "Permission denied" on first write)
+touch storage/logs/laravel.log
+
+# Create public/livewire symlink if not exists (Livewire asset serving)
+if [ ! -L public/livewire ]; then
+  if [ -d public/vendor/livewire ]; then
+    ln -s vendor/livewire public/livewire
+    echo "✅ Created symlink: public/livewire -> vendor/livewire"
+  else
+    echo "📦 Publishing Livewire assets..."
+    su-exec www php artisan livewire:publish --assets >/dev/null 2>&1 || true
     if [ -d public/vendor/livewire ]; then
       ln -s vendor/livewire public/livewire
-      echo "✅ Created symlink: public/livewire -> vendor/livewire"
-    else
-      echo "📦 Publishing Livewire assets..."
-      su-exec www php artisan livewire:publish --assets >/dev/null 2>&1 || true
-      if [ -d public/vendor/livewire ]; then
-        ln -s vendor/livewire public/livewire
-        echo "✅ Livewire assets published and symlink created"
-      fi
+      echo "✅ Livewire assets published and symlink created"
     fi
-  fi 
-  
-  # Clear stale cache files yang mungkin corrupt atau orphaned
-  echo "🧹 Cleaning stale cache files..."
-  rm -rf storage/framework/views/*.php 2>/dev/null || true
-  rm -rf storage/framework/cache/data/* 2>/dev/null || true
-  rm -rf bootstrap/cache/*.php 2>/dev/null || true
-  
-  # Set ownership dan permission
-  chown -R www:www storage bootstrap/cache 2>/dev/null || true
-  chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
-  
-  echo "✅ Permissions set"
+  fi
+fi 
+
+# Clear stale cache files yang mungkin corrupt atau orphaned
+echo "🧹 Cleaning stale cache files..."
+rm -rf storage/framework/views/*.php 2>/dev/null || true
+rm -rf storage/framework/cache/data/* 2>/dev/null || true
+rm -rf bootstrap/cache/*.php 2>/dev/null || true
+
+# Set ownership dan permission
+chown -R www:www storage bootstrap/cache 2>/dev/null || true
+chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
+chmod 664 storage/logs/laravel.log 2>/dev/null || true
+
+echo "✅ Permissions set"
 fi
 
 # Laravel cache warming (run as www user)

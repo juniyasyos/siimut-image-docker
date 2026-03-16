@@ -165,7 +165,6 @@ chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
 chmod 664 storage/logs/laravel.log 2>/dev/null || true
 
 echo "✅ Permissions set"
-fi
 
 # Laravel cache warming (run as www user)
 echo "⚙️  Warming Laravel caches..."

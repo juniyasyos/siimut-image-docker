@@ -408,6 +408,8 @@ services:
         APP_ENV: production
     container_name: iam-queue
     working_dir: /var/www/iam
+    env_file:
+      - ./env/.env.iam
     environment:
       DB_HOST: database-service
       DB_USER: iam_user
@@ -443,6 +445,8 @@ services:
         APP_ENV: production
     container_name: iam-scheduler
     working_dir: /var/www/iam
+    env_file:
+      - ./env/.env.iam
     environment:
       DB_HOST: database-service
       DB_USER: iam_user

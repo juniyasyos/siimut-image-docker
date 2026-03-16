@@ -7,7 +7,7 @@ set -e
 
 # Load configuration from env/.env.ikp if exists (JUST LIKE prepare-siimut.sh & prepare-iam.sh)
 if [ -f "env/.env.ikp" ]; then
-    source <(grep -E '^(APP_DIR|REPO_URL|BRANCH|DB_DATABASE|DB_USER|DB_PASSWORD)=' env/.env.ikp | sed 's/^/export /')
+    source <(grep -E '^(APP_DIR|APPP_KEY|REPO_URL|BRANCH|DB_DATABASE|DB_USER|DB_PASSWORD)=' env/.env.ikp | sed 's/^/export /')
 fi
 
 APP_DIR="${APP_DIR:-ikp}"

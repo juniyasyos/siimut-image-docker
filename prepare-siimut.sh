@@ -106,14 +106,14 @@ if [ "$NO_DEPS" = false ]; then
     fi
     echo "✅ Dependencies OK"
 
-    # Install Composer dependencies
-    echo "📦 Installing Composer dependencies..."
-    if [ -f "composer.json" ]; then
-        composer install --no-interaction --optimize-autoloader
-        echo "✅ Composer install complete"
-    else
-        echo "⚠️  composer.json not found, skipping Composer install"
-    fi
+    # # Install Composer dependencies
+    # echo "📦 Installing Composer dependencies..."
+    # if [ -f "composer.json" ]; then
+    #     composer install --no-interaction --optimize-autoloader
+    #     echo "✅ Composer install complete"
+    # else
+    #     echo "⚠️  composer.json not found, skipping Composer install"
+    # fi
 
     # Install npm dependencies and build frontend
     echo "📦 Installing npm dependencies..."

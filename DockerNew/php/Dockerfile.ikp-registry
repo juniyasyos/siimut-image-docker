@@ -10,7 +10,7 @@ ARG TZ=Asia/Jakarta
 ARG APP_NAME="IKP Application"
 
 # Sistem & build deps
-RUN apk add --no-cache \
+RUN apk add \
       tzdata bash shadow ca-certificates unzip su-exec \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \

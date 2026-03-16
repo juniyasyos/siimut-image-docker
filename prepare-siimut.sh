@@ -31,7 +31,7 @@ fi
 if [ -d "${SITE_DIR}/.git" ]; then
     echo "🔄 Repository exists, pulling latest code..."
     cd "${SITE_DIR}"
-    if git pull origin feat-daily-report; then
+    if git pull origin iam-service; then
         echo "✅ Git pull successful!"
     else
         echo "❌ Git pull failed! Check repository status."
@@ -40,7 +40,7 @@ if [ -d "${SITE_DIR}/.git" ]; then
     cd "../../"
 else
     echo "📥 Repository not found, cloning from ${REPO_URL}..."
-    if git clone -b feat-daily-report "${REPO_URL}" "${SITE_DIR}"; then
+    if git clone -b iam-service "${REPO_URL}" "${SITE_DIR}"; then
         echo "✅ Git clone successful!"
     else
         echo "❌ Git clone failed! Check URL and network."

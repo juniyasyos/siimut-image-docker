@@ -398,6 +398,71 @@ services:
         aliases:
           - iam-app
 
+  queue-iam:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.iam-registry
+      args:
+        APP_DIR: iam-server
+        APP_NAME: "IAM Server"
+        APP_ENV: production
+    container_name: iam-queue
+    working_dir: /var/www/iam
+    environment:
+      DB_HOST: database-service
+      DB_USER: iam_user
+      DB_PASSWORD: iam-password
+    volumes:
+      - iam_storage:/var/www/iam/storage
+      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan queue:work
+        --sleep=5
+        --tries=3
+        --timeout=120
+        --max-jobs=500
+        --max-time=3600
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
+  scheduler-iam:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.iam-registry
+      args:
+        APP_DIR: iam-server
+        APP_NAME: "IAM Server"
+        APP_ENV: production
+    container_name: iam-scheduler
+    working_dir: /var/www/iam
+    environment:
+      DB_HOST: database-service
+      DB_USER: iam_user
+      DB_PASSWORD: iam-password
+    volumes:
+      - iam_storage:/var/www/iam/storage
+      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan schedule:work
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 128M
+          cpus: "0.125"
+
   ###################################################################################################
   ###################################################################################################
   # End Section: Apps - Production Application

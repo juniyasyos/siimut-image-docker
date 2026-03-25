@@ -31,7 +31,7 @@ fi
 if [ -d "${SITE_DIR}/.git" ]; then
     echo "🔄 Repository exists, pulling latest code..."
     cd "${SITE_DIR}"
-    if git pull origin iam-service; then
+    if git pull origin main; then
         echo "✅ Git pull successful!"
     else
         echo "❌ Git pull failed! Check repository status."
@@ -40,7 +40,7 @@ if [ -d "${SITE_DIR}/.git" ]; then
     cd "../../"
 else
     echo "📥 Repository not found, cloning from ${REPO_URL}..."
-    if git clone -b iam-service "${REPO_URL}" "${SITE_DIR}"; then
+    if git clone -b main "${REPO_URL}" "${SITE_DIR}"; then
         echo "✅ Git clone successful!"
     else
         echo "❌ Git clone failed! Check URL and network."
@@ -105,26 +105,6 @@ if [ "$NO_DEPS" = false ]; then
         exit 1
     fi
     echo "✅ Dependencies OK"
-
-    # # Install Composer dependencies
-    # echo "📦 Installing Composer dependencies..."
-    # if [ -f "composer.json" ]; then
-    #     composer install --no-interaction --optimize-autoloader
-    #     echo "✅ Composer install complete"
-    # else
-    #     echo "⚠️  composer.json not found, skipping Composer install"
-    # fi
-
-    # Install npm dependencies and build frontend
-    echo "📦 Installing npm dependencies..."
-    if [ -f "package.json" ]; then
-        npm install
-        echo "🔨 Building frontend assets..."
-        npm run build
-        echo "✅ Frontend build complete"
-    else
-        echo "⚠️  package.json not found, skipping npm build"
-    fi
 else
     echo "⚠️  Skipping dependency checks/install and npm build per --no-install-dependencies flag"
 fi

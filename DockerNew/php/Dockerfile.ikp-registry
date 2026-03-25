@@ -77,27 +77,15 @@ RUN set -eux; \
 ARG BUILD_TIMESTAMP
 RUN echo "Build timestamp: ${BUILD_TIMESTAMP}" > /tmp/build.info
 
-# Copy entire source code (this layer will always be rebuilt due to timestamp)
-COPY . .
+# Copy entire app source (this layer will always be rebuilt due to timestamp)
+COPY site/${APP_DIR}/ /app
 
-# Extract and finalize app from monorepo structure  
+# Extract and finalize app from context root
 RUN set -eux; \
-    echo ">> Building IKP application from APP_DIR='${APP_DIR}'"; \
+    echo ">> Building IKP application"; \
     echo ">> Build info: $(cat /tmp/build.info)"; \
-    if [ -d "site/${APP_DIR}" ]; then \
-      echo ">> Using app from site/${APP_DIR}"; \
-      cp -r "site/${APP_DIR}/." "/app/"; \
-      # Show recent changes to verify source is up to date
-      echo ">> Recent changes in site/${APP_DIR}:"; \
-      find "site/${APP_DIR}" -type f -newer /tmp/build.info -ls 2>/dev/null | head -10 || true; \
-    elif [ -d "${APP_DIR}" ]; then \
-      echo ">> Using app from ${APP_DIR}"; \
-      cp -r "${APP_DIR}/." "/app/"; \
-    else \
-      echo ">> Using app from repository root"; \
-      cp -r . "/app/"; \
-    fi; \
     cd /app; \
+    rm -rf bootstrap/cache/*; \
     \
     # Finalize composer setup
     if [ -f composer.json ]; then \

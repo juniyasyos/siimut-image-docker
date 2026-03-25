@@ -4,6 +4,10 @@ set -e
 echo "🚀 Starting App (Production Registry Mode)"
 
 APP_ENV="${APP_ENV:-production}"
+if [ "${APP_ENV}" != "production" ]; then
+    echo "⚠️ APP_ENV is '${APP_ENV}', overriding to 'production' for registry container"
+    APP_ENV="production"
+fi
 APP_WORKDIR="${APP_WORKDIR:-/var/www/siimut}"
 PUBLIC_VOLUME="${PUBLIC_VOLUME:-/var/www/public-shared}"
 
@@ -67,6 +71,7 @@ fi
 APP_KEY_VALUE=$(grep -E '^APP_KEY=' .env | head -1 | cut -d'=' -f2- || true)
 if [ -z "${APP_KEY_VALUE}" ]; then
     echo "🔐 Generating APP_KEY..."
+    rm -rf bootstrap/cache/*.php
     php artisan key:generate --force
 fi
 

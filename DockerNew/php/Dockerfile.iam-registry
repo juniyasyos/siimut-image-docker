@@ -54,26 +54,14 @@ ARG APP_DIR=iam-server
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
     COMPOSER_MEMORY_LIMIT=-1
 
-WORKDIR /build
+WORKDIR /app
 
-# Copy entire context
-COPY . .
+# Copy only IAM app code (jangan seluruh repo root) supaya artisan dan struktur Laravel benar
+COPY site/${APP_DIR}/ /app
 
-# Extract app from monorepo structure
 RUN set -eux; \
-    echo ">> Building IAM application from APP_DIR='${APP_DIR}'"; \
-    if [ -d "site/${APP_DIR}" ]; then \
-      echo ">> Using app from site/${APP_DIR}"; \
-      cp -r "site/${APP_DIR}/." "/app/"; \
-    elif [ -d "${APP_DIR}" ]; then \
-      echo ">> Using app from ${APP_DIR}"; \
-      cp -r "${APP_DIR}/." "/app/"; \
-    else \
-      echo ">> Using app from repository root"; \
-      cp -r . "/app/"; \
-    fi; \
-    cd /app; \
-    \
+    echo ">> Building IAM application"; \
+    rm -rf /app/bootstrap/cache/*; \
     if [ -f composer.json ]; then \
       echo ">> Installing composer dependencies..."; \
       composer install \
@@ -85,6 +73,7 @@ RUN set -eux; \
         --classmap-authoritative; \
     else \
       echo ">> No composer.json found"; \
+      exit 1; \
     fi; \
     # build frontend assets if app has package.json
     if [ -f package.json ]; then \
@@ -93,7 +82,7 @@ RUN set -eux; \
       echo ">> Building frontend assets..."; \
       npm run build || echo "⚠️ npm build failed"; \
     fi; \
-    rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
+    rm -rf "$COMPOSER_CACHE_DIR" /tmp/*
 
 # =========================
 # Stage 3: Runtime

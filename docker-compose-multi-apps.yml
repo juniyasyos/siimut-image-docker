@@ -81,7 +81,9 @@ services:
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
       APP_URL: "http://192.168.1.9:8000"
+      DB_CONNECTION: mysql
       DB_HOST: database-service
+      DB_PORT: 3306
       DB_USERNAME: siimut_user
       DB_PASSWORD: siimut-password
       DB_DATABASE: siimut_db
@@ -130,6 +132,7 @@ services:
         APP_DIR: siimut
         APP_NAME: "SIIMUT Application"
         APP_ENV: production
+        DB_CONNECTION: mysql
         DB_HOST: database-service
         DB_USERNAME: siimut_user
         DB_PASSWORD: siimut-password
@@ -142,7 +145,11 @@ services:
     container_name: siimut-queue
     working_dir: /var/www/siimut
     environment:
+      APP_ENV: production
+      DB_CONNECTION: mysql
       DB_HOST: database-service
+      DB_PORT: 3306
+      DB_DATABASE: siimut_db
       DB_USER: siimut_user
       DB_PASSWORD: siimut-password
     volumes:
@@ -174,6 +181,7 @@ services:
         APP_DIR: siimut
         APP_NAME: "SIIMUT Application"
         APP_ENV: production
+        DB_CONNECTION: mysql
         DB_HOST: database-service
         DB_USERNAME: siimut_user
         DB_PASSWORD: siimut-password
@@ -186,7 +194,11 @@ services:
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
     environment:
+      APP_ENV: production
+      DB_CONNECTION: mysql
       DB_HOST: database-service
+      DB_PORT: 3306
+      DB_DATABASE: siimut_db
       DB_USER: siimut_user
       DB_PASSWORD: siimut-password
     volumes:
@@ -216,7 +228,8 @@ services:
       args:
         APP_DIR: ikp
         APP_NAME: "IKP Application"
-        APP_ENV: local
+        APP_ENV: production
+        DB_CONNECTION: mysql
         DB_HOST: database-service
         DB_USERNAME: ikp_user
         DB_PASSWORD: ikp-password
@@ -230,12 +243,14 @@ services:
     container_name: ikp-app
     working_dir: /var/www/ikp
     environment:
-      APP_ENV: local
+      APP_ENV: production
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
       # APP_URL: "http://192.168.1.9:8200"
       APP_URL: "http://192.168.1.9:8200"
+      DB_CONNECTION: mysql
       DB_HOST: database-service
+      DB_PORT: 3306
       DB_USERNAME: ikp_user
       DB_PASSWORD: ikp-password
       DB_DATABASE: ikp_db
@@ -367,10 +382,15 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
+      DB_CONNECTION: mysql
+      DB_HOST: database-service
+      DB_PORT: 3306
+      DB_DATABASE: iam_db
+      DB_USERNAME: iam_user
+      DB_PASSWORD: iam-password
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
       APP_WORKDIR: /var/www/iam
       PUBLIC_VOLUME: /var/www/public-shared-iam
-      DB_HOST: database-service
       # IAM Server Configuration - Override from compose
       APP_URL: "http://192.168.1.9:8100"
     volumes:
@@ -411,8 +431,12 @@ services:
     env_file:
       - ./env/.env.iam
     environment:
+      APP_ENV: production
+      DB_CONNECTION: mysql
       DB_HOST: database-service
-      DB_USER: iam_user
+      DB_PORT: 3306
+      DB_DATABASE: iam_db
+      DB_USERNAME: iam_user
       DB_PASSWORD: iam-password
     volumes:
       - iam_storage:/var/www/iam/storage
@@ -448,8 +472,12 @@ services:
     env_file:
       - ./env/.env.iam
     environment:
+      APP_ENV: production
+      DB_CONNECTION: mysql
       DB_HOST: database-service
-      DB_USER: iam_user
+      DB_PORT: 3306
+      DB_DATABASE: iam_db
+      DB_USERNAME: iam_user
       DB_PASSWORD: iam-password
     volumes:
       - iam_storage:/var/www/iam/storage

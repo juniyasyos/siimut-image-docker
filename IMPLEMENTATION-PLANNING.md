@@ -49,7 +49,7 @@ DB_DATABASE=siimut_prod26
 # Identity & Access Management
 USE_SSO=false
 IAM_ENABLED=false
-IAM_HOST=http://127.0.0.1:8000
+IAM_HOST=http://192.168.1.9:8000
 
 # All other settings for development...
 ```

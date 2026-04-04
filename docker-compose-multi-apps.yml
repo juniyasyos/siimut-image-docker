@@ -102,7 +102,7 @@ services:
       IAM_LOGIN_ROUTE: "/siimut/login"
       IAM_CALLBACK_ROUTE: "/sso/callback"
       IAM_APP_KEY: "siimut"
-      IAM_JWT_SECRET: "SIIMUT_ZK8FnRKJo5GlfBoN0izTVg0fR63r9UsgY86IaHeN"
+      IAM_JWT_SECRET: "base64:G8w0qytVP8V+Mml5pYqm90R9m7AdfltGk1GCXMGq2qw="
     volumes:
       # Self-contained image - NO code mounts needed
       # Only persistent data volumes
@@ -386,7 +386,7 @@ services:
       resources:
         limits:
           memory: 2G
-          cpus: "1.0"
+          cpus: "1.2"
         reservations:
           memory: 1G
           cpus: "0.5"

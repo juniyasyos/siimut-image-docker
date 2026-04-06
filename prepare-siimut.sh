@@ -31,7 +31,7 @@ fi
 if [ -d "${SITE_DIR}/.git" ]; then
     echo "🔄 Repository exists, pulling latest code..."
     cd "${SITE_DIR}"
-    if git pull origin main; then
+    if git pull origin siimut-sso; then
         echo "✅ Git pull successful!"
     else
         echo "❌ Git pull failed! Check repository status."

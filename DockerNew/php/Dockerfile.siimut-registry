@@ -85,6 +85,13 @@ COPY . .
 RUN set -eux; \
     echo ">> Building SIIMUT application from APP_DIR='${APP_DIR}'"; \
     echo ">> Build info: $(cat /tmp/build.info)"; \
+    \
+    # Save vendor directory (already pre-installed)
+    if [ -d "/app/vendor" ]; then \
+      echo ">> Saving pre-installed vendor..."; \
+      mv /app/vendor /tmp/vendor-backup; \
+    fi; \
+    \
     if [ -d "site/${APP_DIR}" ]; then \
       echo ">> Using app from site/${APP_DIR}"; \
       cp -r "site/${APP_DIR}/." "/app/"; \
@@ -98,6 +105,17 @@ RUN set -eux; \
       echo ">> Using app from repository root"; \
       cp -r . "/app/"; \
     fi; \
+    \
+    # Restore vendor directory
+    if [ -d "/tmp/vendor-backup" ]; then \
+      echo ">> Restoring pre-installed vendor..."; \
+      if [ -d "/app/vendor" ]; then \
+        rm -rf /app/vendor; \
+      fi; \
+      mv /tmp/vendor-backup /app/vendor; \
+      echo ">> Vendor restored ($(du -sh /app/vendor | awk '{print $1}'))"; \
+    fi; \
+    \
     cd /app; \
     \
     # Finalize composer setup
@@ -108,6 +126,14 @@ RUN set -eux; \
       php artisan optimize || echo ">> artisan optimize skipped (no .env / APP_KEY not set)"; \
     else \
       echo ">> No composer.json found"; \
+    fi; \
+    \
+    # Verify vendor/livewire exists
+    if [ -d "/app/vendor/livewire" ]; then \
+      echo "✅ Livewire found at /app/vendor/livewire"; \
+    else \
+      echo "⚠️ WARNING: Livewire not found in vendor directory!"; \
+      echo "Available packages: $(ls -1 /app/vendor | wc -l) directories"; \
     fi; \
     \
     # Show app structure to verify

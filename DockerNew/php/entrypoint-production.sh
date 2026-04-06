@@ -72,6 +72,22 @@ php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed (c
 php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed (continuing...)"
 php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed (continuing...)"
 
+# Publish Livewire assets if needed
+echo "📦 Checking Livewire assets..."
+if [ ! -d "public/vendor/livewire" ]; then
+    echo "🔄 Publishing Livewire assets..."
+    php artisan livewire:publish --assets || echo "⚠️ livewire:publish failed"
+    if [ -d "public/vendor/livewire" ] && [ ! -L "public/livewire" ]; then
+        ln -s vendor/livewire public/livewire
+        echo "✅ Livewire symlink created"
+    fi
+else
+    echo "✅ Livewire assets already present"
+    if [ ! -L "public/livewire" ]; then
+        ln -s vendor/livewire public/livewire
+    fi
+fi
+
 echo "📊 Container ready at: $(date)"
 
 # Fix permissions for storage & cache (relatif ke APP_WORKDIR)

@@ -145,10 +145,30 @@ if [ ! -L public/livewire ]; then
     echo "✅ Created symlink: public/livewire -> vendor/livewire"
   else
     echo "📦 Publishing Livewire assets..."
-    su-exec www php artisan livewire:publish --assets >/dev/null 2>&1 || true
+    if ! su-exec www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
+      echo "⚠️ livewire:publish had issues. See log above."
+    fi
+    
+    # Check if assets were published
     if [ -d public/vendor/livewire ]; then
       ln -s vendor/livewire public/livewire
       echo "✅ Livewire assets published and symlink created"
+    else
+      # Try alternative: vendor/bin/livewire if available
+      if [ -f vendor/bin/livewire ]; then
+        echo "🔄 Trying alternative livewire publish method..."
+        su-exec www vendor/bin/livewire publish --assets || true
+      fi
+      
+      # Final check
+      if [ -d public/vendor/livewire ]; then
+        ln -s vendor/livewire public/livewire
+        echo "✅ Livewire assets published (alternative method)"
+      else
+        echo "❌ ERROR: Livewire assets could not be published!"
+        echo "📋 Available vendor dirs: $(ls -1 public/vendor 2>/dev/null | head -5)"
+        echo "📋 Check /tmp/livewire-publish.log for details"
+      fi
     fi
   fi
 fi 

@@ -76,7 +76,7 @@ DB_DATABASE=siimut_db
 # Identity & Access Management
 USE_SSO=true
 IAM_ENABLED=true
-IAM_HOST=http://192.168.1.4:8100
+IAM_HOST=http://192.168.1.9:8100
 
 # All other production settings...
 ```

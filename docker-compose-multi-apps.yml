@@ -72,15 +72,17 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: siimut
-        AWS_URL: http://192.168.1.9:9090/siimut
+        AWS_URL: http://127.0.0.1:9090/siimut
         AWS_ENDPOINT: http://minio:9090
     container_name: siimut-app
     working_dir: /var/www/siimut
+    env_file:
+      - ./env/.env.prod.siimut
     environment:
       APP_ENV: production
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.9:8000"
+      APP_URL: "http://127.0.0.1:8000"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
@@ -90,20 +92,19 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_BUCKET: siimut
-      AWS_URL: http://192.168.1.9:9090/siimut
+      AWS_URL: http://127.0.0.1:9090/siimut
       AWS_ENDPOINT: http://minio:9090
       # SSO Configuration - Override from compose
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.9:8100"
-      IAM_BASE_URL: "http://192.168.1.9:8100"
+      IAM_HOST: "http://127.0.0.1:8100"
+      IAM_BASE_URL: "http://127.0.0.1:8100"
       # Internal container verification can still use private network alias.
       IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
       IAM_LOGIN_ROUTE: "/siimut/login"
       IAM_CALLBACK_ROUTE: "/sso/callback"
       IAM_APP_KEY: "siimut"
-      IAM_JWT_SECRET: "base64:G8w0qytVP8V+Mml5pYqm90R9m7AdfltGk1GCXMGq2qw="
     volumes:
       # Self-contained image - NO code mounts needed
       # Only persistent data volumes
@@ -141,7 +142,7 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: siimut
-        AWS_URL: http://192.168.1.9:9090/siimut
+        AWS_URL: http://127.0.0.1:9090/siimut
         AWS_ENDPOINT: http://minio:9090
     container_name: siimut-queue
     working_dir: /var/www/siimut
@@ -185,7 +186,7 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: siimut
-        AWS_URL: http://192.168.1.9:9090/siimut
+        AWS_URL: http://127.0.0.1:9090/siimut
         AWS_ENDPOINT: http://minio:9090
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
@@ -228,8 +229,8 @@ services:
   #       AWS_ACCESS_KEY_ID: admin
   #       AWS_SECRET_ACCESS_KEY: password
   #       AWS_BUCKET: ikp
-  #       # AWS_URL: http://192.168.1.9:9090/ikp
-  #       AWS_URL: http://192.168.1.9:9090/ikp
+  #       # AWS_URL: http://127.0.0.1:9090/ikp
+  #       AWS_URL: http://127.0.0.1:9090/ikp
   #       AWS_ENDPOINT: http://minio:9090
   #   container_name: ikp-app
   #   working_dir: /var/www/ikp
@@ -237,8 +238,8 @@ services:
   #     APP_ENV: local
   #     APP_WORKDIR: /var/www/ikp
   #     PUBLIC_VOLUME: /var/www/ikp/public
-  #     # APP_URL: "http://192.168.1.9:8200"
-  #     APP_URL: "http://192.168.1.9:8200"
+  #     # APP_URL: "http://127.0.0.1:8200"
+  #     APP_URL: "http://127.0.0.1:8200"
   #     DB_HOST: database-service
   #     DB_USERNAME: ikp_user
   #     DB_PASSWORD: ikp-password
@@ -247,8 +248,8 @@ services:
   #     AWS_ACCESS_KEY_ID: admin
   #     AWS_SECRET_ACCESS_KEY: password
   #     AWS_BUCKET: ikp
-  #     # AWS_URL: http://192.168.1.9:9090/ikp
-  #     AWS_URL: http://192.168.1.9:9090/ikp
+  #     # AWS_URL: http://127.0.0.1:9090/ikp
+  #     AWS_URL: http://127.0.0.1:9090/ikp
   #     AWS_ENDPOINT: http://minio:9090
   #   volumes:
   #     - ikp_storage:/var/www/ikp/storage
@@ -285,7 +286,7 @@ services:
   #       AWS_ACCESS_KEY_ID: admin
   #       AWS_SECRET_ACCESS_KEY: password
   #       AWS_BUCKET: ikp
-  #       AWS_URL: http://192.168.1.9:9090/ikp
+  #       AWS_URL: http://127.0.0.1:9090/ikp
   #       AWS_ENDPOINT: http://minio:9090
   #   container_name: ikp-queue
   #   working_dir: /var/www/ikp
@@ -329,7 +330,7 @@ services:
   #       AWS_ACCESS_KEY_ID: admin
   #       AWS_SECRET_ACCESS_KEY: password
   #       AWS_BUCKET: ikp
-  #       AWS_URL: http://192.168.1.9:9090/ikp
+  #       AWS_URL: http://127.0.0.1:9090/ikp
   #       AWS_ENDPOINT: http://minio:9090
   #   container_name: ikp-scheduler
   #   working_dir: /var/www/ikp
@@ -368,7 +369,7 @@ services:
     container_name: iam-app
     working_dir: /var/www/iam
     env_file:
-      - ./env/.env.iam
+      - ./env/.env.prod.iam
     environment:
       APP_ENV: production
       TRUSTED_PROXIES: "*"
@@ -377,8 +378,8 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage
@@ -415,11 +416,11 @@ services:
     container_name: iam-queue
     working_dir: /var/www/iam
     env_file:
-      - ./env/.env.iam
+      - ./env/.env.prod.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
@@ -455,11 +456,11 @@ services:
     container_name: iam-scheduler
     working_dir: /var/www/iam
     env_file:
-      - ./env/.env.iam
+      - ./env/.env.prod.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password

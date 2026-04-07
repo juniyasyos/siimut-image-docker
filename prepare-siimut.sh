@@ -158,4 +158,90 @@ fi
 cd "../../"
 echo ""
 echo "✅ Local verification and build preparation complete!"
+
+# =========================
+# Generate Production Environment File with Secrets
+# =========================
+echo ""
+echo "======================================"
+echo "🔐 Generating Production .env File"
+echo "======================================"
+
+PROD_ENV_FILE="env/.env.prod.siimut"
+
+# Check if production .env already exists
+if [ -f "${PROD_ENV_FILE}" ]; then
+    echo "⚠️  ${PROD_ENV_FILE} already exists."
+    read -p "Do you want to regenerate secrets? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "⏭️  Skipping secret generation. Using existing ${PROD_ENV_FILE}"
+        echo "💡 Next: Run ./build-siimut.sh to build the image"
+        exit 0
+    fi
+fi
+
+# Copy template to production config
+echo "📋 Creating production env from template..."
+cp env/.env.siimut "${PROD_ENV_FILE}"
+echo "✅ Copied env/.env.siimut → ${PROD_ENV_FILE}"
+
+echo ""
+echo "🔧 Generating secrets..."
+
+# Generate APP_KEY (32 bytes, base64 encoded)
+if command -v php &> /dev/null; then
+    APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+else
+    # Fallback if PHP not available (for CI/CD)
+    APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+fi
+echo "  ✓ APP_KEY generated"
+
+# Generate database password (16 bytes)
+DB_PASSWORD="$(openssl rand -base64 16 | tr -d '\n')"
+echo "  ✓ Database password generated"
+
+# Generate MySQL root password
+MYSQL_ROOT_PASSWORD="$(openssl rand -base64 16 | tr -d '\n')"
+echo "  ✓ MySQL root password generated"
+
+# Get IAM_JWT_SECRET from env/.env.iam or env/.env.prod.iam
+# This ensures SIIMUT uses same JWT secret as IAM
+if [ -f "env/.env.prod.iam" ]; then
+    IAM_JWT_SECRET=$(grep '^IAM_JWT_SECRET=' env/.env.prod.iam | cut -d '=' -f 2)
+    echo "  ✓ IAM_JWT_SECRET synced from env/.env.prod.iam"
+else
+    # Fallback: generate a new one (not ideal, but better than empty)
+    IAM_JWT_SECRET="$(openssl rand -hex 32)"
+    echo "  ⚠️  env/.env.prod.iam not found, generating new IAM_JWT_SECRET"
+    echo "      (Recommend running ./prepare-iam.sh first!)"
+fi
+
+echo ""
+echo "📝 Updating ${PROD_ENV_FILE} with generated secrets..."
+
+# Use temp file for safer sed replacement
+TEMP_FILE="${PROD_ENV_FILE}.tmp"
+cp "${PROD_ENV_FILE}" "${TEMP_FILE}"
+
+# Replace placeholders with actual values
+sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" "${TEMP_FILE}"
+sed -i "s|^MYSQL_PASSWORD=.*|MYSQL_PASSWORD=${DB_PASSWORD}|" "${TEMP_FILE}"
+sed -i "s|^MYSQL_ROOT_PASSWORD=.*|MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}|" "${TEMP_FILE}"
+sed -i "s|^IAM_JWT_SECRET=.*|IAM_JWT_SECRET=${IAM_JWT_SECRET}|" "${TEMP_FILE}"
+
+mv "${TEMP_FILE}" "${PROD_ENV_FILE}"
+echo "✅ Secrets updated in ${PROD_ENV_FILE}"
+
+echo ""
+echo "======================================"
+echo "🎉 Production Environment Generated!"
+echo "======================================"
+echo ""
+echo "📁 Environment file: ${PROD_ENV_FILE}"
+echo "🔐 This file contains generated secrets"
+echo "⚠️  IMPORTANT: This file is in .gitignore - DO NOT commit!"
+echo ""
+echo "💡 Next: Run ./build-siimut.sh to build the image"
 echo "💡 Next: Run ./build-siimut.sh to build the Docker image"

@@ -178,13 +178,13 @@ echo ""
 
 # Analysis 1: Redirect URI Mismatch
 echo -e "${BLUE}[CHECK 1] Redirect URI Configuration${NC}"
-if echo "$DB_RESULT" | grep -q "http://192.168.1.9:8000\|http://127.0.0.1:8000"; then
+if echo "$DB_RESULT" | grep -q "http://127.0.0.1:8000\|http://127.0.0.1:8000"; then
     echo -e "${GREEN}✅ redirect_uris in database looks correct${NC}"
     echo "   Actual value: $REDIRECT_URIS"
 else
     echo -e "${RED}❌ ISSUE: redirect_uris may be incorrect${NC}"
     echo "   Database shows: $REDIRECT_URIS"
-    echo "   Expected: http://192.168.1.9:8000 or http://127.0.0.1:8000"
+    echo "   Expected: http://127.0.0.1:8000 or http://127.0.0.1:8000"
 fi
 echo ""
 

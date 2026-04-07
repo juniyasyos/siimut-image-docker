@@ -27,6 +27,15 @@ Repos/
 site/*
 
 # ===========================================
+# PRODUCTION ENVIRONMENT FILES (SECRETS)
+# ===========================================
+# Production .env files with generated secrets
+# These are created by prepare-*.sh scripts
+# NEVER commit these files!
+env/.env.prod.*
+env/.env.production.*
+
+# ===========================================
 # DOCKER DATA & SENSITIVE FILES
 # ===========================================
 

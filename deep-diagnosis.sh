@@ -111,24 +111,113 @@ echo ""
 # 7. Check logs for actual error
 echo -e "${YELLOW}8. SIIMUT RECENT ERROR LOGS${NC}"
 echo "Looking for redirect or verification errors..."
-docker compose -f docker-compose-multi-apps.yml logs app-siimut --tail=50 2>&1 | grep -i "redirect\|error\|signature\|token\|sso" | head -20 || echo "No error logs found"
+SIIMUT_LOGS=$(docker compose -f docker-compose-multi-apps.yml logs app-siimut --tail=50 2>&1 | grep -i "redirect\|error\|signature\|token\|sso" | head -20)
+if [ -z "$SIIMUT_LOGS" ]; then
+    echo "No error logs found"
+else
+    echo "$SIIMUT_LOGS"
+fi
 echo ""
 
 echo -e "${YELLOW}9. IAM RECENT LOGS${NC}"
 echo "Looking for token issues..."
-docker compose -f docker-compose-multi-apps.yml logs app-iam --tail=50 2>&1 | grep -i "error\|token\|sso" | head -20 || echo "No error logs found"
+IAM_LOGS=$(docker compose -f docker-compose-multi-apps.yml logs app-iam --tail=50 2>&1 | grep -i "error\|token\|sso" | head -20)
+if [ -z "$IAM_LOGS" ]; then
+    echo "No error logs found"
+else
+    echo "$IAM_LOGS"
+fi
 echo ""
 
 echo -e "${YELLOW}10. NGINX LOGS - SIIMUT REDIRECTS${NC}"
 echo "Checking nginx redirect patterns..."
-docker compose -f docker-compose-multi-apps.yml logs web --tail=100 2>&1 | grep -i "siimut\|8000\|redirect" | head -15 || echo "No nginx redirects found"
+NGINX_LOGS=$(docker compose -f docker-compose-multi-apps.yml logs web --tail=100 2>&1 | grep -i "siimut\|8000\|redirect" | head -15)
+if [ -z "$NGINX_LOGS" ]; then
+    echo "No nginx redirects found"
+else
+    echo "$NGINX_LOGS"
+fi
 echo ""
 
-echo -e "${YELLOW}=== ANALYSIS ===${NC}"
-echo "Check these points:"
-echo "1. Is redirect_uris in database correct? (should be http://192.168.1.9:8000)"
-echo "2. Does JWT payload have correct 'sub' (user ID)?"
-echo "3. Does SIIMUT verify endpoint accept the token?"
-echo "4. Are there CSRF errors in logs?"
-echo "5. Do session domains match?"
+# Evaluate diagnostic results
+TOKEN_STATUS="❌ FAILED"
+if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
+    TOKEN_STATUS="✅ PASSED"
+fi
+
+VERIFY_STATUS="❌ CHECKED"
+if [ ! -z "$VERIFY_RESPONSE" ] && [ "$VERIFY_RESPONSE" != "404" ]; then
+    VERIFY_STATUS="✅ ACTIVE"
+fi
+
+SIIMUT_LOGS_STATUS="✅ CLEAN"
+if [ ! -z "$SIIMUT_LOGS" ]; then
+    SIIMUT_LOGS_STATUS="⚠️  ERRORS FOUND"
+fi
+
+IAM_LOGS_STATUS="✅ CLEAN"
+if [ ! -z "$IAM_LOGS" ]; then
+    IAM_LOGS_STATUS="⚠️  ERRORS FOUND"
+fi
+
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║${NC}           🔍 DIAGNOSTIC RESULTS SUMMARY${NC}              ${YELLOW}║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+echo -e "${YELLOW}┌─ TEST RESULTS ─────────────────────────────────────────┐${NC}"
+echo -e "│ Database Config        │ ⏱️  (See output #1)           │"
+echo -e "│ Token Generation       │ $TOKEN_STATUS                              │"
+echo -e "│ JWT Payload            │ ⏱️  (See output #3)           │"
+echo -e "│ Verify Endpoint        │ $VERIFY_STATUS                              │"
+echo -e "│ Session Configuration  │ ⏱️  (See output #5)           │"
+echo -e "│ SIIMUT Logs            │ $SIIMUT_LOGS_STATUS                        │"
+echo -e "│ IAM Logs               │ $IAM_LOGS_STATUS                          │"
+echo -e "│ Nginx Redirects        │ ⏱️  (See output #10)          │"
+echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
+echo ""
+
+echo -e "${YELLOW}┌─ CRITICAL CHECKS ──────────────────────────────────────┐${NC}"
+if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
+    echo -e "│ ✅ JWT Token Generated Successfully${NC}"
+else
+    echo -e "│ ❌ JWT Token Generation Failed - Check IAM database${NC}"
+fi
+
+if [ ! -z "$VERIFY_RESPONSE" ] && [ "$VERIFY_RESPONSE" != "404" ]; then
+    echo -e "│ ✅ SIIMUT Verify Endpoint Responsive${NC}"
+else
+    echo -e "│ ❌ SIIMUT Verify Endpoint Not Responding${NC}"
+fi
+
+if [ -z "$SIIMUT_LOGS" ]; then
+    echo -e "│ ✅ SIIMUT Logs Clean (No Errors)${NC}"
+else
+    echo -e "│ ⚠️  SIIMUT Logs Contain Warnings/Errors${NC}"
+fi
+
+if [ -z "$IAM_LOGS" ]; then
+    echo -e "│ ✅ IAM Logs Clean (No Errors)${NC}"
+else
+    echo -e "│ ⚠️  IAM Logs Contain Warnings/Errors${NC}"
+fi
+echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
+echo ""
+
+echo -e "${YELLOW}┌─ NEXT STEPS ───────────────────────────────────────────┐${NC}"
+echo -e "│ 1. Review output #1: Database redirect_uris config    │"
+echo -e "│ 2. Review output #3: JWT payload structure & claims  │"
+echo -e "│ 5. Verify session domains match between apps         │"
+if [ ! -z "$SIIMUT_LOGS" ]; then
+    echo -e "│ 8. Address SIIMUT log errors (output #8)            │"
+fi
+if [ ! -z "$IAM_LOGS" ]; then
+    echo -e "│ 9. Address IAM log errors (output #9)               │"
+fi
+echo -e "│ 10. Check nginx redirect chain (output #10)          │"
+echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
+echo ""
+echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}Diagnostic scan completed. Review outputs above carefully.${NC}"
+echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
 echo ""

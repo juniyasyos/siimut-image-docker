@@ -1,90 +1,79 @@
 #!/bin/bash
-# =========================
-# Diagnostic Script for IAM Server 502 Error
-# =========================
 
-echo "======================================"
-echo "🔍 IAM Server Diagnostics"
-echo "======================================"
+echo "=================================="
+echo "IAM SSO REDIRECT LOOP DIAGNOSTICS"
+echo "=================================="
+echo "Timestamp: $(date)"
 echo ""
 
-# 1. Check if containers are running
-echo "1️⃣ Container Status:"
-echo "---"
-docker ps -a --filter "name=iam" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${YELLOW}=== 1. CONTAINER STATUS ===${NC}"
+docker compose -f docker-compose-multi-apps.yml ps app-iam | tail -2
 echo ""
 
-# 2. Check container health
-echo "2️⃣ Health Checks:"
-echo "---"
-docker inspect iam-app --format='{{.State.Health.Status}}' 2>/dev/null || echo "No health check"
-docker inspect iam-web --format='{{.State.Health.Status}}' 2>/dev/null || echo "No health check"
+echo -e "${YELLOW}=== 2. ENV FILE CONTENTS (.env.iam) ===${NC}"
+if [ -f "env/.env.iam" ]; then
+    cat env/.env.iam
+else
+    echo "❌ env/.env.iam not found"
+fi
 echo ""
 
-# 3. Check network connectivity
-echo "3️⃣ Network Connectivity:"
-echo "---"
-echo "Database container:"
-docker ps --filter "name=database" --format "table {{.Names}}\t{{.Status}}"
-echo ""
-echo "Network connection test:"
-docker exec iam-app ping -c 2 database-service 2>/dev/null || echo "❌ Cannot reach database"
-docker exec iam-web ping -c 2 app 2>/dev/null || echo "❌ Cannot reach app from web"
+echo -e "${YELLOW}=== 3. APP_URL & IAM_ISSUER IN CONTAINER ===${NC}"
+docker compose -f docker-compose-multi-apps.yml exec -T app-iam env | grep -E "APP_URL|IAM_ISSUER|APP_ENV|TRUSTED" || echo "❌ Failed to get env vars"
 echo ""
 
-# 4. Check PHP-FPM status
-echo "4️⃣ PHP-FPM Status:"
-echo "---"
-docker exec iam-app ps aux | grep php-fpm | head -5 || echo "❌ PHP-FPM not running"
+echo -e "${YELLOW}=== 4. CONFIG(IAM.ISSUER) VIA ARTISAN TINKER ===${NC}"
+docker compose -f docker-compose-multi-apps.yml exec -T app-iam php artisan tinker <<EOF 2>&1 | head -50
+config('iam.issuer')
+config('app.url')
+exit
+EOF
 echo ""
 
-# 5. Check recent logs
-echo "5️⃣ Recent App Logs (last 20 lines):"
-echo "---"
-docker logs iam-app --tail 20 2>&1
+echo -e "${YELLOW}=== 5. VERIFY ENDPOINT TEST ===${NC}"
+echo "Testing: GET http://127.0.0.1:8000/api/sso/verify"
+docker compose -f docker-compose-multi-apps.yml exec -T app-iam curl -s http://127.0.0.1:8000/api/sso/verify -H "Authorization: Bearer invalid" 2>&1 | head -20
 echo ""
 
-echo "6️⃣ Recent Caddy Logs (last 20 lines):"
-echo "---"
-docker logs iam-web --tail 20 2>&1
+echo -e "${YELLOW}=== 6. RECENT CONTAINER LOGS (last 50 lines) ===${NC}"
+docker compose -f docker-compose-multi-apps.yml logs app-iam --tail=50 2>&1
 echo ""
 
-# 7. Check ports
-echo "7️⃣ Port Bindings:"
-echo "---"
-docker port iam-web 2>/dev/null || echo "No ports"
+echo -e "${YELLOW}=== 7. NGINX LOGS - ERROR (last 20 lines) ===${NC}"
+docker compose -f docker-compose-multi-apps.yml logs web --tail=20 2>&1 | grep -i "redirect\|error\|sso" || echo "No relevant logs found"
 echo ""
 
-# 8. Test PHP-FPM directly
-echo "8️⃣ PHP-FPM Test:"
-echo "---"
-docker exec iam-app php -v || echo "❌ PHP not working"
-docker exec iam-app php artisan --version 2>&1 || echo "❌ Laravel not working"
+echo -e "${YELLOW}=== 8. CHECK SIIMUT CONFIG ===${NC}"
+docker compose -f docker-compose-multi-apps.yml exec -T app-siimut php artisan tinker <<EOF 2>&1 | head -30
+config('iam.issuer')
+config('iam.host')
+config('iam.base_url')
+exit
+EOF
 echo ""
 
-# 9. Check file permissions
-echo "9️⃣ File Permissions:"
-echo "---"
-docker exec iam-app ls -la /var/www/iam/ | head -10
+echo -e "${YELLOW}=== 9. TRUSTED_PROXIES CHECK ===${NC}"
+docker compose -f docker-compose-multi-apps.yml exec -T app-iam php artisan tinker <<EOF 2>&1
+config('trustedproxy.proxies')
+getenv('TRUSTED_PROXIES')
+exit
+EOF
 echo ""
 
-# 10. Test internal connection
-echo "🔟 Internal Connection Test:"
-echo "---"
-echo "Test from Caddy to PHP-FPM:"
-docker exec iam-web wget -O- http://app:9000 2>&1 | head -5 || echo "❌ Cannot connect"
+echo -e "${YELLOW}=== 10. NGINX MULTI-APPS CONFIG (first 100 lines) ===${NC}"
+docker compose -f docker-compose-multi-apps.yml exec -T web cat /etc/nginx/conf.d/default.conf 2>&1 | head -100
 echo ""
 
-echo "======================================"
-echo "💡 Common Issues & Solutions:"
-echo "======================================"
-echo "1. Container not healthy → Check logs above"
-echo "2. Network issues → Verify both containers in same network"
-echo "3. PHP-FPM not responding → Restart app container"
-echo "4. Permission denied → Check volume mounts"
-echo "5. Database connection → Verify DB_HOST in .env"
+echo -e "${YELLOW}=== 11. DATABASE - APPLICATIONS TABLE ===${NC}"
+docker compose -f docker-compose-multi-apps.yml exec -T database-service mysql -u root -proot_password siimut_db -e "SELECT id, key, name, redirect_uris FROM applications WHERE key='siimut' LIMIT 1;" 2>&1
 echo ""
-echo "Quick fixes to try:"
-echo "  docker-compose -f docker-compose.iam-registry.yml restart app"
-echo "  docker-compose -f docker-compose.iam-registry.yml restart web"
-echo "  docker-compose -f docker-compose.iam-registry.yml logs -f"
+
+echo -e "${GREEN}=== DIAGNOSTICS COMPLETE ===${NC}"
+echo "Please send the complete output above."
+

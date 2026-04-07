@@ -371,12 +371,14 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
+      TRUSTED_PROXIES: "*"
       PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
       APP_WORKDIR: /var/www/iam
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
       APP_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage
@@ -415,6 +417,9 @@ services:
     env_file:
       - ./env/.env.iam
     environment:
+      APP_ENV: production
+      APP_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
@@ -452,6 +457,9 @@ services:
     env_file:
       - ./env/.env.iam
     environment:
+      APP_ENV: production
+      APP_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password

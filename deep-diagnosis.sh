@@ -1,25 +1,33 @@
 #!/bin/bash
 
 echo "=========================================="
-echo "DEEP LOGIN FLOW DIAGNOSTICS"
+echo "COMPREHENSIVE LOGIN FLOW DIAGNOSTICS"
 echo "=========================================="
+echo "Timestamp: $(date)"
 echo ""
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 1. Check database Applications config
-echo -e "${YELLOW}1. DATABASE - APPLICATIONS TABLE${NC}"
-echo "Checking redirect_uris in database..."
-docker compose -f docker-compose-multi-apps.yml exec -T database-service mysql -u iam_user -piam-password iam_db -e \
-"SELECT id, key, name, redirect_uris FROM applications WHERE key='siimut';" 2>&1
+# ============== OUTPUT #1: DATABASE CONFIG ==============
+echo -e "${YELLOW}=== OUTPUT #1: DATABASE - APPLICATIONS TABLE ===${NC}"
+echo "Query: SELECT id, key, name, redirect_uris FROM applications WHERE key='siimut'"
+echo ""
+DB_RESULT=$(docker compose -f docker-compose-multi-apps.yml exec -T database-service mysql -u iam_user -piam-password iam_db -e \
+"SELECT id, key, name, redirect_uris FROM applications WHERE key='siimut';" 2>&1)
+echo "$DB_RESULT"
 echo ""
 
-# 2. Test actual token generation
-echo -e "${YELLOW}2. TEST TOKEN GENERATION${NC}"
-echo "Generate test access token from IAM..."
+# Extract redirect_uris for later comparison
+REDIRECT_URIS=$(echo "$DB_RESULT" | tail -1 | awk '{print $NF}')
+echo -e "${BLUE}Extracted redirect_uris: $REDIRECT_URIS${NC}"
+echo ""
+
+# ============== OUTPUT #2: TOKEN GENERATION ==============
+echo -e "${YELLOW}=== OUTPUT #2: GENERATE JWT TOKEN FROM IAM ===${NC}"
 TOKEN=$(docker compose -f docker-compose-multi-apps.yml exec -T app-iam php -r "
 require 'vendor/autoload.php';
 \$app = require 'bootstrap/app.php';
@@ -34,188 +42,248 @@ if (\$user) {
 }
 " 2>&1)
 
-echo "Token generated (first 50 chars): ${TOKEN:0:50}..."
+if [ "$TOKEN" = "ERROR: No users found" ]; then
+    echo -e "${RED}❌ No users in IAM database${NC}"
+else
+    echo -e "${GREEN}✅ Token generated (first 80 chars):${NC}"
+    echo "${TOKEN:0:80}..."
+fi
 echo ""
 
-# Decode JWT without verification to see payload
-echo -e "${YELLOW}3. DECODE TOKEN PAYLOAD${NC}"
+# ============== OUTPUT #3: JWT PAYLOAD DECODE ==============
+echo -e "${YELLOW}=== OUTPUT #3: DECODE JWT PAYLOAD ===${NC}"
 if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
     IFS='.' read -r HEADER PAYLOAD FOOTER <<< "$TOKEN"
-    # Add padding
     PAYLOAD_PADDED="${PAYLOAD}$(printf '%*s' $(( (4 - ${#PAYLOAD} % 4) % 4 )) | tr ' ' '=')"
     DECODED=$(echo "$PAYLOAD_PADDED" | base64 -d 2>/dev/null)
     
-    if [ $? -eq 0 ]; then
-        echo "JWT Payload (decoded):"
-        echo "$DECODED" | jq '.' 2>/dev/null || echo "$DECODED"
+    echo "Raw JWT Token:"
+    echo "  Header: ${HEADER:0:40}..."
+    echo "  Payload: ${PAYLOAD:0:40}..."
+    echo "  Signature: ${FOOTER:0:40}..."
+    echo ""
+    echo "Decoded Payload JSON:"
+    echo "$DECODED" | jq '.' 2>/dev/null || echo "$DECODED"
+else
+    echo -e "${RED}❌ Cannot decode - no valid token${NC}"
+fi
+echo ""
+
+# ============== OUTPUT #4: CORS HEADERS CHECK ==============
+echo -e "${YELLOW}=== OUTPUT #4: CORS HEADERS CHECK ===${NC}"
+echo "Testing CORS headers from IAM server..."
+echo "Request: OPTIONS http://127.0.0.1:8100/api/sso/admin/auth-code"
+CORS_RESPONSE=$(curl -s -i -X OPTIONS \
+    -H "Origin: http://127.0.0.1:8000" \
+    -H "Access-Control-Request-Method: POST" \
+    -H "Access-Control-Request-Headers: content-type" \
+    http://127.0.0.1:8100/api/sso/admin/auth-code 2>&1)
+
+echo "$CORS_RESPONSE" | head -20
+echo ""
+
+# Check for CORS headers
+if echo "$CORS_RESPONSE" | grep -i "access-control-allow"; then
+    echo -e "${GREEN}✅ CORS headers present${NC}"
+else
+    echo -e "${RED}❌ CORS headers MISSING - May cause browser to reject requests${NC}"
+fi
+echo ""
+
+# ============== OUTPUT #5: SESSION CONFIGURATION ==============
+echo -e "${YELLOW}=== OUTPUT #5: SESSION CONFIGURATION COMPARISON ===${NC}"
+echo "SIIMUT Session Config:"
+SIIMUT_SESSION=$(docker compose -f docker-compose-multi-apps.yml exec -T app-siimut php -r "
+require 'vendor/autoload.php';
+\$app = require 'bootstrap/app.php';
+\$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
+
+echo 'Driver: ' . config('session.driver') . PHP_EOL;
+echo 'Domain: ' . (config('session.domain') ?: '(null)') . PHP_EOL;
+echo 'Lifetime: ' . config('session.lifetime') . ' minutes' . PHP_EOL;
+echo 'Cookie Secure: ' . (config('session.secure') ? 'true' : 'false') . PHP_EOL;
+echo 'Cookie HttpOnly: ' . (config('session.http_only') ? 'true' : 'false') . PHP_EOL;
+echo 'Same Site: ' . (config('session.same_site') ?: 'default') . PHP_EOL;
+" 2>&1)
+echo "$SIIMUT_SESSION"
+echo ""
+
+echo "IAM Session Config:"
+IAM_SESSION=$(docker compose -f docker-compose-multi-apps.yml exec -T app-iam php -r "
+require 'vendor/autoload.php';
+\$app = require 'bootstrap/app.php';
+\$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
+
+echo 'Driver: ' . config('session.driver') . PHP_EOL;
+echo 'Domain: ' . (config('session.domain') ?: '(null)') . PHP_EOL;
+echo 'Lifetime: ' . config('session.lifetime') . ' minutes' . PHP_EOL;
+echo 'Cookie Secure: ' . (config('session.secure') ? 'true' : 'false') . PHP_EOL;
+echo 'Cookie HttpOnly: ' . (config('session.http_only') ? 'true' : 'false') . PHP_EOL;
+echo 'Same Site: ' . (config('session.same_site') ?: 'default') . PHP_EOL;
+" 2>&1)
+echo "$IAM_SESSION"
+echo ""
+
+# ============== OUTPUT #6: TEST LOGIN PAGE ==============
+echo -e "${YELLOW}=== OUTPUT #6: TEST SIIMUT LOGIN PAGE REQUEST ===${NC}"
+echo "Request: GET http://127.0.0.1:8000/siimut/login"
+echo "Following max 2 redirects to see redirect chain..."
+echo ""
+LOGIN_RESPONSE=$(curl -s -i -L --max-redirs 2 http://127.0.0.1:8000/siimut/login 2>&1)
+echo "$LOGIN_RESPONSE" | head -80
+echo ""
+
+# Extract Location headers to show redirect chain
+echo "Redirect chain detected:"
+echo "$LOGIN_RESPONSE" | grep -i "^location:" || echo "No redirects found"
+echo ""
+
+# ============== OUTPUT #7: VERIFY ENDPOINT TEST ==============
+echo -e "${YELLOW}=== OUTPUT #7: TEST SIIMUT VERIFY ENDPOINT ===${NC}"
+if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
+    echo "Testing with real JWT token..."
+    echo "Request: GET http://127.0.0.1:8000/api/sso/verify"
+    echo "Authorization: Bearer [JWT token]"
+    echo ""
+    VERIFY_RESPONSE=$(curl -s -i -H "Authorization: Bearer $TOKEN" \
+        http://127.0.0.1:8000/api/sso/verify 2>&1)
+    
+    echo "Response (first 50 lines):"
+    echo "$VERIFY_RESPONSE" | head -50
+else
+    echo -e "${RED}❌ Skipped - no token available${NC}"
+fi
+echo ""
+
+# ============== OUTPUT #8: SIIMUT LOGS ==============
+echo -e "${YELLOW}=== OUTPUT #8: SIIMUT CONTAINER LOGS (last 80 lines) ===${NC}"
+docker compose -f docker-compose-multi-apps.yml logs app-siimut --tail=80 2>&1
+echo ""
+
+# ============== OUTPUT #9: IAM LOGS ==============
+echo -e "${YELLOW}=== OUTPUT #9: IAM CONTAINER LOGS (last 80 lines) ===${NC}"
+docker compose -f docker-compose-multi-apps.yml logs app-iam --tail=80 2>&1
+echo ""
+
+# ============== OUTPUT #10: NGINX LOGS ==============
+echo -e "${YELLOW}=== OUTPUT #10: NGINX LOGS (last 80 lines) ===${NC}"
+docker compose -f docker-compose-multi-apps.yml logs web --tail=80 2>&1
+echo ""
+
+# ============== COMPREHENSIVE ANALYSIS ==============
+echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║${NC}        🔍 COMPREHENSIVE ROOT CAUSE ANALYSIS${NC}             ${YELLOW}║${NC}"
+echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Analysis 1: Redirect URI Mismatch
+echo -e "${BLUE}[CHECK 1] Redirect URI Configuration${NC}"
+if echo "$DB_RESULT" | grep -q "http://192.168.1.9:8000\|http://127.0.0.1:8000"; then
+    echo -e "${GREEN}✅ redirect_uris in database looks correct${NC}"
+    echo "   Actual value: $REDIRECT_URIS"
+else
+    echo -e "${RED}❌ ISSUE: redirect_uris may be incorrect${NC}"
+    echo "   Database shows: $REDIRECT_URIS"
+    echo "   Expected: http://192.168.1.9:8000 or http://127.0.0.1:8000"
+fi
+echo ""
+
+# Analysis 2: Token Generation
+echo -e "${BLUE}[CHECK 2] JWT Token Generation${NC}"
+if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
+    echo -e "${GREEN}✅ Token generation successful${NC}"
+    echo "   Token format: JWT (3 parts separated by dots)"
+else
+    echo -e "${RED}❌ ISSUE: Cannot generate JWT token${NC}"
+    echo "   Possible causes:"
+    echo "   - No users in IAM database"
+    echo "   - JWT_SECRET not configured"
+    echo "   - Database connection issue"
+fi
+echo ""
+
+# Analysis 3: CORS Headers
+echo -e "${BLUE}[CHECK 3] CORS Configuration${NC}"
+if echo "$CORS_RESPONSE" | grep -qi "access-control-allow-origin"; then
+    echo -e "${GREEN}✅ CORS headers configured${NC}"
+else
+    echo -e "${RED}❌ ISSUE: CORS headers missing${NC}"
+    echo "   Browser will block cross-origin requests from SIIMUT (8000) to IAM (8100)"
+    echo "   Solution: Add CORS middleware to IAM routes"
+fi
+echo ""
+
+# Analysis 4: Redirect Loop Detection
+echo -e "${BLUE}[CHECK 4] Redirect Loop Indicators${NC}"
+if echo "$LOGIN_RESPONSE" | grep -i "location:" | tail -1 | grep -q "siimut/login"; then
+    echo -e "${RED}❌ LOOP DETECTED: Final redirect points back to /siimut/login${NC}"
+    echo "   This indicates session validation is failing"
+    echo "   Probable causes:"
+    echo "   - Token not being stored in session"
+    echo "   - Session domain mismatch"
+    echo "   - CSRF token issue"
+elif echo "$LOGIN_RESPONSE" | grep -q "Set-Cookie"; then
+    echo -e "${GREEN}✅ Session cookies being set${NC}"
+else
+    echo -e "${YELLOW}⚠️  No session cookies detected${NC}"
+fi
+echo ""
+
+# Analysis 5: Session Domain Matching
+echo -e "${BLUE}[CHECK 5] Session Domain Compatibility${NC}"
+SIIMUT_DOMAIN=$(echo "$SIIMUT_SESSION" | grep "Domain:" | awk '{print $NF}')
+IAM_DOMAIN=$(echo "$IAM_SESSION" | grep "Domain:" | awk '{print $NF}')
+echo "SIIMUT Domain: ${SIIMUT_DOMAIN:-(null)}"
+echo "IAM Domain: ${IAM_DOMAIN:-(null)}"
+
+if [ "$SIIMUT_DOMAIN" != "$IAM_DOMAIN" ]; then
+    if [ -z "$SIIMUT_DOMAIN" ] && [ -z "$IAM_DOMAIN" ]; then
+        echo -e "${GREEN}✅ Both using null domain (acceptable for localhost)${NC}"
     else
-        echo "❌ Could not decode JWT"
+        echo -e "${YELLOW}⚠️  Domains don't match - may cause session issues${NC}"
     fi
 else
-    echo "❌ No token to decode"
+    echo -e "${GREEN}✅ Domains match${NC}"
 fi
 echo ""
 
-# 3. Test SIIMUT verify endpoint with real token
-echo -e "${YELLOW}4. TEST SIIMUT VERIFY ENDPOINT${NC}"
-if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
-    echo "Testing: POST http://127.0.0.1:8000/api/sso/verify"
-    VERIFY_RESPONSE=$(curl -s -X GET \
-        -H "Authorization: Bearer $TOKEN" \
-        http://127.0.0.1:8000/api/sso/verify)
-    
-    echo "Response:"
-    echo "$VERIFY_RESPONSE" | jq '.' 2>/dev/null || echo "$VERIFY_RESPONSE"
+# Analysis 6: Verify Endpoint Response
+echo -e "${BLUE}[CHECK 6] Token Verification${NC}"
+if echo "$VERIFY_RESPONSE" | grep -q "200\|verified\|success"; then
+    echo -e "${GREEN}✅ Verify endpoint accepts token${NC}"
+elif echo "$VERIFY_RESPONSE" | grep -q "401\|403\|unauthorized"; then
+    echo -e "${RED}❌ ISSUE: Verify endpoint rejecting token${NC}"
+    echo "   Possible causes:"
+    echo "   - Token signature invalid"
+    echo "   - Token expired"
+    echo "   - JWT_SECRET mismatch between IAM and SIIMUT"
+elif echo "$VERIFY_RESPONSE" | grep -q "404"; then
+    echo -e "${RED}❌ ISSUE: Verify endpoint not found (404)${NC}"
+    echo "   Check if /api/sso/verify route exists in SIIMUT"
 else
-    echo "❌ Skipped - no token available"
+    echo -e "${YELLOW}⚠️  Unexpected response - check output #7${NC}"
 fi
 echo ""
 
-# 4. Check session handling
-echo -e "${YELLOW}5. SESSION CONFIGURATION${NC}"
-echo "Check SESSION_DRIVER and SESSION settings:"
-docker compose -f docker-compose-multi-apps.yml exec -T app-siimut php -r "
-require 'vendor/autoload.php';
-\$app = require 'bootstrap/app.php';
-\$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
-
-echo 'SIIMUT Session Driver: ' . config('session.driver') . PHP_EOL;
-echo 'SIIMUT Session Domain: ' . config('session.domain') . PHP_EOL;
-echo 'SIIMUT Session Lifetime: ' . config('session.lifetime') . PHP_EOL;
-echo 'SIIMUT CSRF Enabled: ' . (config('csrf_protection') ? 'true' : 'false') . PHP_EOL;
-" 2>&1
-
+# Final recommendation
+echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║${NC}                      RECOMMENDATIONS${NC}                       ${YELLOW}║${NC}"
+echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-docker compose -f docker-compose-multi-apps.yml exec -T app-iam php -r "
-require 'vendor/autoload.php';
-\$app = require 'bootstrap/app.php';
-\$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
-
-echo 'IAM Session Driver: ' . config('session.driver') . PHP_EOL;
-echo 'IAM Session Domain: ' . config('session.domain') . PHP_EOL;
-" 2>&1
+echo "1. Check OUTPUT #1 - Verify redirect_uris in database is correct"
+echo "2. Check OUTPUT #3 - Verify JWT payload contains all required claims (sub, iss, iat, exp)"
+echo "3. Check OUTPUT #4 - If CORS missing, add CorsServiceProvider to SIIMUT"
+echo "4. Check OUTPUT #6 - If redirect loop detected, investigate SESSION storage"
+echo "5. Check OUTPUT #8 & #9 - Look for specific error messages in application logs"
+echo "6. Check OUTPUT #10 - Review nginx error logs for any routing issues"
+echo ""
+echo "Most Common Causes of Login Loop:"
+echo "  • CORS headers missing → browser blocks SSO requests"
+echo "  • Session domain mismatch → session not shared between apps"
+echo "  • Redirect URI mismatch → OAuth callback fails"
+echo "  • Token verification fails → session invalidated immediately"
 echo ""
 
-# 5. Test actual login page
-echo -e "${YELLOW}6. TEST SIIMUT LOGIN PAGE REQUEST${NC}"
-echo "GET http://127.0.0.1:8000/siimut/login (follow 1 redirect max)"
-curl -s -i -L --max-redirs 1 http://127.0.0.1:8000/siimut/login 2>&1 | head -50
-echo ""
-
-# 6. Check middleware - CSRF
-echo -e "${YELLOW}7. CSRF & AUTH MIDDLEWARE CHECK${NC}"
-echo "Checking SIIMUT auth routes..."
-docker compose -f docker-compose-multi-apps.yml exec -T app-siimut grep -r "csrf\|middleware" routes/api.php 2>/dev/null | head -10
-echo ""
-
-# 7. Check logs for actual error
-echo -e "${YELLOW}8. SIIMUT RECENT ERROR LOGS${NC}"
-echo "Looking for redirect or verification errors..."
-SIIMUT_LOGS=$(docker compose -f docker-compose-multi-apps.yml logs app-siimut --tail=50 2>&1 | grep -i "redirect\|error\|signature\|token\|sso" | head -20)
-if [ -z "$SIIMUT_LOGS" ]; then
-    echo "No error logs found"
-else
-    echo "$SIIMUT_LOGS"
-fi
-echo ""
-
-echo -e "${YELLOW}9. IAM RECENT LOGS${NC}"
-echo "Looking for token issues..."
-IAM_LOGS=$(docker compose -f docker-compose-multi-apps.yml logs app-iam --tail=50 2>&1 | grep -i "error\|token\|sso" | head -20)
-if [ -z "$IAM_LOGS" ]; then
-    echo "No error logs found"
-else
-    echo "$IAM_LOGS"
-fi
-echo ""
-
-echo -e "${YELLOW}10. NGINX LOGS - SIIMUT REDIRECTS${NC}"
-echo "Checking nginx redirect patterns..."
-NGINX_LOGS=$(docker compose -f docker-compose-multi-apps.yml logs web --tail=100 2>&1 | grep -i "siimut\|8000\|redirect" | head -15)
-if [ -z "$NGINX_LOGS" ]; then
-    echo "No nginx redirects found"
-else
-    echo "$NGINX_LOGS"
-fi
-echo ""
-
-# Evaluate diagnostic results
-TOKEN_STATUS="❌ FAILED"
-if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
-    TOKEN_STATUS="✅ PASSED"
-fi
-
-VERIFY_STATUS="❌ CHECKED"
-if [ ! -z "$VERIFY_RESPONSE" ] && [ "$VERIFY_RESPONSE" != "404" ]; then
-    VERIFY_STATUS="✅ ACTIVE"
-fi
-
-SIIMUT_LOGS_STATUS="✅ CLEAN"
-if [ ! -z "$SIIMUT_LOGS" ]; then
-    SIIMUT_LOGS_STATUS="⚠️  ERRORS FOUND"
-fi
-
-IAM_LOGS_STATUS="✅ CLEAN"
-if [ ! -z "$IAM_LOGS" ]; then
-    IAM_LOGS_STATUS="⚠️  ERRORS FOUND"
-fi
-
-echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║${NC}           🔍 DIAGNOSTIC RESULTS SUMMARY${NC}              ${YELLOW}║${NC}"
-echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-echo -e "${YELLOW}┌─ TEST RESULTS ─────────────────────────────────────────┐${NC}"
-echo -e "│ Database Config        │ ⏱️  (See output #1)           │"
-echo -e "│ Token Generation       │ $TOKEN_STATUS                              │"
-echo -e "│ JWT Payload            │ ⏱️  (See output #3)           │"
-echo -e "│ Verify Endpoint        │ $VERIFY_STATUS                              │"
-echo -e "│ Session Configuration  │ ⏱️  (See output #5)           │"
-echo -e "│ SIIMUT Logs            │ $SIIMUT_LOGS_STATUS                        │"
-echo -e "│ IAM Logs               │ $IAM_LOGS_STATUS                          │"
-echo -e "│ Nginx Redirects        │ ⏱️  (See output #10)          │"
-echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
-echo ""
-
-echo -e "${YELLOW}┌─ CRITICAL CHECKS ──────────────────────────────────────┐${NC}"
-if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
-    echo -e "│ ✅ JWT Token Generated Successfully${NC}"
-else
-    echo -e "│ ❌ JWT Token Generation Failed - Check IAM database${NC}"
-fi
-
-if [ ! -z "$VERIFY_RESPONSE" ] && [ "$VERIFY_RESPONSE" != "404" ]; then
-    echo -e "│ ✅ SIIMUT Verify Endpoint Responsive${NC}"
-else
-    echo -e "│ ❌ SIIMUT Verify Endpoint Not Responding${NC}"
-fi
-
-if [ -z "$SIIMUT_LOGS" ]; then
-    echo -e "│ ✅ SIIMUT Logs Clean (No Errors)${NC}"
-else
-    echo -e "│ ⚠️  SIIMUT Logs Contain Warnings/Errors${NC}"
-fi
-
-if [ -z "$IAM_LOGS" ]; then
-    echo -e "│ ✅ IAM Logs Clean (No Errors)${NC}"
-else
-    echo -e "│ ⚠️  IAM Logs Contain Warnings/Errors${NC}"
-fi
-echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
-echo ""
-
-echo -e "${YELLOW}┌─ NEXT STEPS ───────────────────────────────────────────┐${NC}"
-echo -e "│ 1. Review output #1: Database redirect_uris config    │"
-echo -e "│ 2. Review output #3: JWT payload structure & claims  │"
-echo -e "│ 5. Verify session domains match between apps         │"
-if [ ! -z "$SIIMUT_LOGS" ]; then
-    echo -e "│ 8. Address SIIMUT log errors (output #8)            │"
-fi
-if [ ! -z "$IAM_LOGS" ]; then
-    echo -e "│ 9. Address IAM log errors (output #9)               │"
-fi
-echo -e "│ 10. Check nginx redirect chain (output #10)          │"
-echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}Diagnostic scan completed. Review outputs above carefully.${NC}"

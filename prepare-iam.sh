@@ -79,6 +79,30 @@ cp env/.env.iam "${PROD_ENV_FILE}"
 echo "✅ Copied env/.env.iam → ${PROD_ENV_FILE}"
 
 echo ""
+echo "🔧 Sanitizing environment file..."
+
+# Create temp file for cleanup
+TEMP_FILE="${PROD_ENV_FILE}.tmp"
+cp "${PROD_ENV_FILE}" "${TEMP_FILE}"
+
+# Remove inline comments from environment variables (everything after # that comes after value)
+# Keep valid commented-out lines (those starting with #)
+sed -i '/^[^#]/s/ *#.*//' "${TEMP_FILE}"
+echo "  ✓ Removed inline comments"
+
+# Ensure SESSION_DOMAIN is empty (no spaces, no comments)
+sed -i 's|^SESSION_DOMAIN=.*|SESSION_DOMAIN=|' "${TEMP_FILE}"
+echo "  ✓ Ensured SESSION_DOMAIN is properly empty"
+
+# Remove duplicate SESSION configuration lines (keep only the first occurrence of each)
+awk '!/^SESSION_/ || !seen[$0]++' "${TEMP_FILE}" > "${TEMP_FILE}.dedup"
+mv "${TEMP_FILE}.dedup" "${TEMP_FILE}"
+echo "  ✓ Removed duplicate SESSION configuration"
+
+mv "${TEMP_FILE}" "${PROD_ENV_FILE}"
+echo "✅ Environment file sanitized"
+
+echo ""
 echo "🔧 Generating secrets..."
 
 # Generate APP_KEY (32 bytes, base64 encoded)
@@ -93,6 +117,7 @@ echo "  ✓ APP_KEY generated"
 # Generate JWT_SECRET (32 bytes, hex)
 JWT_SECRET="$(openssl rand -hex 32)"
 echo "  ✓ IAM_JWT_SECRET generated"
+echo "    📝 Value: ${JWT_SECRET:0:16}...${JWT_SECRET: -16}"
 
 # Generate database password (16 bytes)
 DB_PASSWORD="$(openssl rand -base64 16 | tr -d '\n')"
@@ -138,13 +163,43 @@ sed -i '/^PASSPORT_PUBLIC_KEY=/,/^-----END PUBLIC KEY-----/c\PASSPORT_PUBLIC_KEY
 mv "${TEMP_FILE}" "${PROD_ENV_FILE}"
 echo "✅ Secrets updated in ${PROD_ENV_FILE}"
 
+# Final validation
+echo ""
+echo "🔍 Validating environment file..."
+SESSION_DOMAIN_VAL=$(grep '^SESSION_DOMAIN=' "${PROD_ENV_FILE}" | cut -d '=' -f 2)
+SESSION_SAME_SITE_VAL=$(grep '^SESSION_SAME_SITE=' "${PROD_ENV_FILE}" | cut -d '=' -f 2)
+FINAL_JWT=$(grep '^IAM_JWT_SECRET=' "${PROD_ENV_FILE}" | cut -d '=' -f 2 | tr -d ' ')
+
+if [ -z "$SESSION_DOMAIN_VAL" ]; then
+    echo "  ✓ SESSION_DOMAIN is properly empty"
+else
+    echo "  ⚠️  SESSION_DOMAIN has value: '$SESSION_DOMAIN_VAL' (should be empty)"
+fi
+
+if [[ "$SESSION_SAME_SITE_VAL" =~ ^(lax|strict|none)$ ]]; then
+    echo "  ✓ SESSION_SAME_SITE is valid: $SESSION_SAME_SITE_VAL"
+else
+    echo "  ⚠️  SESSION_SAME_SITE has invalid value: '$SESSION_SAME_SITE_VAL' (should be: lax, strict, or none)"
+fi
+
 echo ""
 echo "======================================"
 echo "🎉 Production Environment Generated!"
 echo "======================================"
 echo ""
 echo "📁 Environment file: ${PROD_ENV_FILE}"
-echo "🔐 This file contains generated secrets"
+echo "🔐 Generated JWT Secret:"
+echo "   ${FINAL_JWT:0:16}...${FINAL_JWT: -16}"
+echo ""
+echo "📋 Summary:"
+echo "   • APP_KEY: Generated ✓"
+echo "   • IAM_JWT_SECRET: Generated ✓"
+echo "   • Database credentials: Generated ✓"
+echo "   • Passport RSA keys: Generated ✓"
+echo ""
 echo "⚠️  IMPORTANT: This file is in .gitignore - DO NOT commit!"
 echo ""
-echo "💡 Next: Run ./build-iam.sh to build the image"
+echo "📌 NEXT STEPS (in order):"
+echo "   1. Run ./prepare-siimut.sh  (will sync JWT secret from this file)"
+echo "   2. Run ./build-iam.sh        (build IAM Docker image)"
+echo "   3. Run docker compose up     (start all services)"

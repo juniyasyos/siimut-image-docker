@@ -102,6 +102,7 @@ services:
       IAM_BASE_URL: "http://127.0.0.1:8100"
       # Internal container verification can still use private network alias.
       IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
+      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
       IAM_LOGIN_ROUTE: "/siimut/login"
       IAM_CALLBACK_ROUTE: "/sso/callback"
       IAM_APP_KEY: "siimut"

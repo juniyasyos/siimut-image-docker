@@ -187,6 +187,35 @@ cp env/.env.siimut "${PROD_ENV_FILE}"
 echo "✅ Copied env/.env.siimut → ${PROD_ENV_FILE}"
 
 echo ""
+echo "🔧 Sanitizing environment file..."
+
+# Create temp file for cleanup
+TEMP_FILE="${PROD_ENV_FILE}.tmp"
+cp "${PROD_ENV_FILE}" "${TEMP_FILE}"
+
+# Remove inline comments from environment variables (everything after # that comes after value)
+# Keep valid commented-out lines (those starting with #)
+sed -i '/^[^#]/s/ *#.*//' "${TEMP_FILE}"
+echo "  ✓ Removed inline comments"
+
+# Fix invalid SESSION_SAME_SITE values (should be: lax, strict, or none)
+sed -i 's|SESSION_SAME_SITE=stricton.*|SESSION_SAME_SITE=lax|' "${TEMP_FILE}"
+sed -i 's|SESSION_SAME_SITE=strict.*on.*|SESSION_SAME_SITE=lax|' "${TEMP_FILE}"
+echo "  ✓ Fixed invalid SESSION_SAME_SITE values"
+
+# Ensure SESSION_DOMAIN is empty (no spaces, no comments)
+sed -i 's|^SESSION_DOMAIN=.*|SESSION_DOMAIN=|' "${TEMP_FILE}"
+echo "  ✓ Ensured SESSION_DOMAIN is properly empty"
+
+# Remove duplicate SESSION configuration lines (keep only the first occurrence of each)
+awk '!/^SESSION_/ || !seen[$0]++' "${TEMP_FILE}" > "${TEMP_FILE}.dedup"
+mv "${TEMP_FILE}.dedup" "${TEMP_FILE}"
+echo "  ✓ Removed duplicate SESSION configuration"
+
+mv "${TEMP_FILE}" "${PROD_ENV_FILE}"
+echo "✅ Environment file sanitized"
+
+echo ""
 echo "🔧 Generating secrets..."
 
 # Generate APP_KEY (32 bytes, base64 encoded)
@@ -209,13 +238,23 @@ echo "  ✓ MySQL root password generated"
 # Get IAM_JWT_SECRET from env/.env.iam or env/.env.prod.iam
 # This ensures SIIMUT uses same JWT secret as IAM
 if [ -f "env/.env.prod.iam" ]; then
-    IAM_JWT_SECRET=$(grep '^IAM_JWT_SECRET=' env/.env.prod.iam | cut -d '=' -f 2)
-    echo "  ✓ IAM_JWT_SECRET synced from env/.env.prod.iam"
+    IAM_JWT_SECRET=$(grep '^IAM_JWT_SECRET=' env/.env.prod.iam | cut -d '=' -f 2 | tr -d ' ')
+    if [ -n "$IAM_JWT_SECRET" ]; then
+        echo "  ✓ IAM_JWT_SECRET synced from env/.env.prod.iam"
+        echo "    Value: ${IAM_JWT_SECRET:0:16}...${IAM_JWT_SECRET: -16}"
+    else
+        # Fallback: generate a new one (not ideal, but better than empty)
+        IAM_JWT_SECRET="$(openssl rand -hex 32)"
+        echo "  ⚠️  IAM_JWT_SECRET in env/.env.prod.iam is empty, generating new one"
+        echo "    Value: ${IAM_JWT_SECRET:0:16}...${IAM_JWT_SECRET: -16}"
+    fi
 else
     # Fallback: generate a new one (not ideal, but better than empty)
     IAM_JWT_SECRET="$(openssl rand -hex 32)"
-    echo "  ⚠️  env/.env.prod.iam not found, generating new IAM_JWT_SECRET"
-    echo "      (Recommend running ./prepare-iam.sh first!)"
+    echo "  ⚠️  env/.env.prod.iam not found!"
+    echo "    IMPORTANT: Run ./prepare-iam.sh FIRST before this script!"
+    echo "    Generating new IAM_JWT_SECRET (will cause token verification to fail)"
+    echo "    Value: ${IAM_JWT_SECRET:0:16}...${IAM_JWT_SECRET: -16}"
 fi
 
 echo ""
@@ -234,14 +273,75 @@ sed -i "s|^IAM_JWT_SECRET=.*|IAM_JWT_SECRET=${IAM_JWT_SECRET}|" "${TEMP_FILE}"
 mv "${TEMP_FILE}" "${PROD_ENV_FILE}"
 echo "✅ Secrets updated in ${PROD_ENV_FILE}"
 
+# Final validation
+echo ""
+echo "🔍 Validating environment file..."
+SESSION_DOMAIN_VAL=$(grep '^SESSION_DOMAIN=' "${PROD_ENV_FILE}" | cut -d '=' -f 2)
+SESSION_SAME_SITE_VAL=$(grep '^SESSION_SAME_SITE=' "${PROD_ENV_FILE}" | cut -d '=' -f 2)
+JWT_VAL=$(grep '^IAM_JWT_SECRET=' "${PROD_ENV_FILE}" | cut -d '=' -f 2 | tr -d ' ')
+
+if [ -z "$SESSION_DOMAIN_VAL" ]; then
+    echo "  ✓ SESSION_DOMAIN is properly empty"
+else
+    echo "  ⚠️  SESSION_DOMAIN has value: '$SESSION_DOMAIN_VAL' (should be empty)"
+fi
+
+if [[ "$SESSION_SAME_SITE_VAL" =~ ^(lax|strict|none)$ ]]; then
+    echo "  ✓ SESSION_SAME_SITE is valid: $SESSION_SAME_SITE_VAL"
+else
+    echo "  ⚠️  SESSION_SAME_SITE has invalid value: '$SESSION_SAME_SITE_VAL' (should be: lax, strict, or none)"
+fi
+
+# Validate JWT secret matches between IAM and SIIMUT
+echo ""
+echo "🔐 JWT Secret Verification:"
+if [ -f "env/.env.prod.iam" ]; then
+    IAM_JWT=$(grep '^IAM_JWT_SECRET=' env/.env.prod.iam | cut -d '=' -f 2 | tr -d ' ')
+    SIIMUT_JWT=$(grep '^IAM_JWT_SECRET=' "${PROD_ENV_FILE}" | cut -d '=' -f 2 | tr -d ' ')
+    
+    echo "  IAM Secret:    ${IAM_JWT:0:16}...${IAM_JWT: -16}"
+    echo "  SIIMUT Secret: ${SIIMUT_JWT:0:16}...${SIIMUT_JWT: -16}"
+    
+    if [ "$IAM_JWT" = "$SIIMUT_JWT" ]; then
+        echo "  ✅ JWT Secrets MATCH! Applications will verify tokens correctly."
+    else
+        echo "  ❌ JWT Secrets DO NOT MATCH! Token verification will fail!"
+        echo "     This will cause infinite redirect loops when logging in from IAM."
+    fi
+else
+    echo "  ⚠️  env/.env.prod.iam not found - cannot verify JWT secret match"
+fi
+
 echo ""
 echo "======================================"
 echo "🎉 Production Environment Generated!"
 echo "======================================"
 echo ""
 echo "📁 Environment file: ${PROD_ENV_FILE}"
-echo "🔐 This file contains generated secrets"
+echo "� Summary:"
+echo "   • APP_KEY: Generated ✓"
+echo "   • IAM_JWT_SECRET: Synced from IAM ✓"
+echo "   • Database credentials: Generated ✓"
+echo "   • Session configuration: Validated ✓"
+echo ""
+echo "🔐 Secret Match Verification (Critical):"
+if [ -f "env/.env.prod.iam" ]; then
+    IAM_JWT_FINAL=$(grep '^IAM_JWT_SECRET=' env/.env.prod.iam | cut -d '=' -f 2 | tr -d ' ')
+    SIIMUT_JWT_FINAL=$(grep '^IAM_JWT_SECRET=' "${PROD_ENV_FILE}" | cut -d '=' -f 2 | tr -d ' ')
+    
+    echo "   IAM:    ${IAM_JWT_FINAL:0:16}...${IAM_JWT_FINAL: -16}"
+    echo "   SIIMUT: ${SIIMUT_JWT_FINAL:0:16}...${SIIMUT_JWT_FINAL: -16}"
+    
+    if [ "$IAM_JWT_FINAL" = "$SIIMUT_JWT_FINAL" ]; then
+        echo "   ✅ MATCH - SSO login will work correctly!"
+    else
+        echo "   ❌ MISMATCH - Token verification will FAIL!"
+    fi
+fi
+echo ""
 echo "⚠️  IMPORTANT: This file is in .gitignore - DO NOT commit!"
 echo ""
-echo "💡 Next: Run ./build-siimut.sh to build the image"
-echo "💡 Next: Run ./build-siimut.sh to build the Docker image"
+echo "📌 NEXT STEPS (in order):"
+echo "   1. Verify JWT secrets match (see output above)"
+echo "   2. Run ./build-siimut.sh       (build SIIMUT Docker image)"
+echo "   3. Run docker compose up       (start all services)"

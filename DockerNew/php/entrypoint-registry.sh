@@ -35,7 +35,7 @@ set_env() {
 }
 
 # list of variables we care about (add more as needed)
-for var in APP_ENV APP_WORKDIR PUBLIC_VOLUME APP_URL DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE SKIP_PUBLIC_SYNC AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT USE_SSO IAM_ENABLED; do
+for var in APP_ENV APP_WORKDIR PUBLIC_VOLUME APP_URL DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE SKIP_PUBLIC_SYNC AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT USE_SSO IAM_ENABLED IAM_HOST IAM_BASE_URL IAM_VERIFY_ENDPOINT IAM_JWT_SECRET IAM_APP_KEY IAM_LOGIN_ROUTE IAM_CALLBACK_ROUTE IAM_GUARD IAM_IDENTIFIER_FIELD IAM_PRESERVE_SESSION_ID IAM_SYNC_ROLES IAM_ROLE_GUARD_NAME IAM_STORE_TOKEN_IN_SESSION; do
     # expand the variable name stored in $var without adding extra spaces
     eval val=\${$var}
     if [ -n "$val" ]; then
@@ -71,10 +71,18 @@ if [ -z "${APP_KEY_VALUE}" ]; then
 fi
 
 # Run switch-auth-mode.sh if exists (for SIIMUT)
+# Respect USE_SSO environment variable - if set to true, use production (SSO) mode
 if [ -f "./switch-auth-mode.sh" ]; then
     echo "🔐 Setting authentication mode..."
     chmod +x ./switch-auth-mode.sh
-    ./switch-auth-mode.sh dev || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
+    
+    if [ "${USE_SSO}" = "true" ] || [ "${IAM_ENABLED}" = "true" ]; then
+        echo "  Using PRODUCTION mode (SSO with IAM)"
+        ./switch-auth-mode.sh prod || echo "⚠️ switch-auth-mode.sh prod failed (continuing...)"
+    else
+        echo "  Using DEVELOPMENT mode (Custom Login)"
+        ./switch-auth-mode.sh dev || echo "⚠️ switch-auth-mode.sh dev failed (continuing...)"
+    fi
 fi
 
 # Copy public assets to shared volume (only if PUBLIC_VOLUME is set and exists)

@@ -72,12 +72,12 @@ echo ""
 # ============== OUTPUT #4: CORS HEADERS CHECK ==============
 echo -e "${YELLOW}=== OUTPUT #4: CORS HEADERS CHECK ===${NC}"
 echo "Testing CORS headers from IAM server..."
-echo "Request: OPTIONS http://127.0.0.1:8100/api/sso/admin/auth-code"
+echo "Request: OPTIONS http://192.168.1.9:8100/api/sso/admin/auth-code"
 CORS_RESPONSE=$(curl -s -i -X OPTIONS \
-    -H "Origin: http://127.0.0.1:8000" \
+    -H "Origin: http://192.168.1.9:8000" \
     -H "Access-Control-Request-Method: POST" \
     -H "Access-Control-Request-Headers: content-type" \
-    http://127.0.0.1:8100/api/sso/admin/auth-code 2>&1)
+    http://192.168.1.9:8100/api/sso/admin/auth-code 2>&1)
 
 echo "$CORS_RESPONSE" | head -20
 echo ""
@@ -126,10 +126,10 @@ echo ""
 
 # ============== OUTPUT #6: TEST LOGIN PAGE ==============
 echo -e "${YELLOW}=== OUTPUT #6: TEST SIIMUT LOGIN PAGE REQUEST ===${NC}"
-echo "Request: GET http://127.0.0.1:8000/siimut/login"
+echo "Request: GET http://192.168.1.9:8000/siimut/login"
 echo "Following max 2 redirects to see redirect chain..."
 echo ""
-LOGIN_RESPONSE=$(curl -s -i -L --max-redirs 2 http://127.0.0.1:8000/siimut/login 2>&1)
+LOGIN_RESPONSE=$(curl -s -i -L --max-redirs 2 http://192.168.1.9:8000/siimut/login 2>&1)
 echo "$LOGIN_RESPONSE" | head -80
 echo ""
 
@@ -142,11 +142,11 @@ echo ""
 echo -e "${YELLOW}=== OUTPUT #7: TEST SIIMUT VERIFY ENDPOINT ===${NC}"
 if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "ERROR: No users found" ]; then
     echo "Testing with real JWT token..."
-    echo "Request: GET http://127.0.0.1:8000/api/sso/verify"
+    echo "Request: GET http://192.168.1.9:8000/api/sso/verify"
     echo "Authorization: Bearer [JWT token]"
     echo ""
     VERIFY_RESPONSE=$(curl -s -i -H "Authorization: Bearer $TOKEN" \
-        http://127.0.0.1:8000/api/sso/verify 2>&1)
+        http://192.168.1.9:8000/api/sso/verify 2>&1)
     
     echo "Response (first 50 lines):"
     echo "$VERIFY_RESPONSE" | head -50
@@ -178,13 +178,13 @@ echo ""
 
 # Analysis 1: Redirect URI Mismatch
 echo -e "${BLUE}[CHECK 1] Redirect URI Configuration${NC}"
-if echo "$DB_RESULT" | grep -q "http://127.0.0.1:8000\|http://127.0.0.1:8000"; then
+if echo "$DB_RESULT" | grep -q "http://192.168.1.9:8000\|http://192.168.1.9:8000"; then
     echo -e "${GREEN}✅ redirect_uris in database looks correct${NC}"
     echo "   Actual value: $REDIRECT_URIS"
 else
     echo -e "${RED}❌ ISSUE: redirect_uris may be incorrect${NC}"
     echo "   Database shows: $REDIRECT_URIS"
-    echo "   Expected: http://127.0.0.1:8000 or http://127.0.0.1:8000"
+    echo "   Expected: http://192.168.1.9:8000 or http://192.168.1.9:8000"
 fi
 echo ""
 

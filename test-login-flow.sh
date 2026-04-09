@@ -68,8 +68,8 @@ echo ""
 
 echo -e "${YELLOW}6. QUICK STATUS${NC}"
 echo "Server status:"
-curl -s -o /dev/null -w "IAM: %{http_code}\n" http://127.0.0.1:8100/health
-curl -s -o /dev/null -w "SIIMUT: %{http_code}\n" http://127.0.0.1:8000/health
+curl -s -o /dev/null -w "IAM: %{http_code}\n" http://192.168.1.9:8100/health
+curl -s -o /dev/null -w "SIIMUT: %{http_code}\n" http://192.168.1.9:8000/health
 echo ""
 
 echo -e "${YELLOW}=== PROBLEM DIAGNOSIS ===${NC}"

@@ -80,7 +80,7 @@ File ini berisi setup lengkap untuk menjalankan 3 aplikasi Laravel sekaligus:
 - Database: `ikp_db` with user `ikp_user`
 - Memory: 1.5GB limit, 768MB reservation
 - CPU: 1.5 limit, 0.75 reservation
-- Public URL: `http://127.0.0.1:8001`
+- Public URL: `http://192.168.1.9:8001`
 
 **Queue Worker** (`queue-ikp`)
 - Container: `ikp-queue`
@@ -208,9 +208,9 @@ docker compose -f docker-compose-three-apps.yml exec app-ikp php artisan migrate
 
 ## Accessing Applications
 
-- **SIIMUT**: http://127.0.0.1:8000
-- **IKP**: http://127.0.0.1:8001
-- **IAM**: http://127.0.0.1:8100 (if enabled)
+- **SIIMUT**: http://192.168.1.9:8000
+- **IKP**: http://192.168.1.9:8001
+- **IAM**: http://192.168.1.9:8100 (if enabled)
 
 ## Resource Management
 
@@ -310,4 +310,4 @@ Check logs: `docker compose -f docker-compose-three-apps.yml logs {service_name}
 4. Build: `docker compose -f docker-compose-three-apps.yml build`
 5. Run: `docker compose -f docker-compose-three-apps.yml up -d`
 6. Run migrations: `docker compose -f docker-compose-three-apps.yml exec app-ikp php artisan migrate`
-7. Access via `http://127.0.0.1:8001`
+7. Access via `http://192.168.1.9:8001`

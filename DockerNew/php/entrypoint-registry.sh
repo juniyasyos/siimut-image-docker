@@ -35,10 +35,18 @@ set_env() {
 }
 
 # list of variables we care about (add more as needed)
-for var in APP_ENV APP_WORKDIR PUBLIC_VOLUME APP_URL DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE SKIP_PUBLIC_SYNC AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT USE_SSO IAM_ENABLED; do
-    # expand the variable name stored in $var without adding extra spaces
-    eval val=\${$var}
-    if [ -n "$val" ]; then
+for var in \
+    APP_ENV APP_WORKDIR PUBLIC_VOLUME APP_URL \
+    DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE \
+    SKIP_PUBLIC_SYNC \
+    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_BUCKET AWS_URL AWS_ENDPOINT \
+    USE_SSO IAM_ENABLED IAM_HOST IAM_BASE_URL IAM_VERIFY_ENDPOINT IAM_REFRESH_TOKEN_ENDPOINT IAM_APP_KEY \
+    LOG_CHANNEL LOG_STACK \
+    SESSION_DRIVER SESSION_DOMAIN SESSION_PATH SESSION_SECURE_COOKIE SESSION_SAME_SITE SESSION_HTTPONLY; do
+    # Write variable to .env when it exists in runtime env, including empty values (e.g. SESSION_DOMAIN=)
+    eval "is_set=\${${var}+x}"
+    if [ "$is_set" = "x" ]; then
+        eval "val=\${$var}"
         set_env "$var" "$val"
     fi
 done
@@ -72,9 +80,18 @@ fi
 
 # Run switch-auth-mode.sh if exists (for SIIMUT)
 if [ -f "./switch-auth-mode.sh" ]; then
-    echo "🔐 Setting authentication mode..."
-    chmod +x ./switch-auth-mode.sh
-    ./switch-auth-mode.sh dev || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
+    if [ "${USE_SSO}" = "true" ] || [ "${IAM_ENABLED}" = "true" ]; then
+        echo "ℹ️ SSO enabled, skipping switch-auth-mode.sh to preserve runtime IAM/session configuration"
+    else
+        echo "🔐 Setting authentication mode..."
+        chmod +x ./switch-auth-mode.sh
+        AUTH_MODE="dev"
+        if [ "${APP_ENV}" = "production" ]; then
+            AUTH_MODE="prod"
+        fi
+        echo "ℹ️ Selected auth mode: ${AUTH_MODE} (USE_SSO=${USE_SSO:-}, IAM_ENABLED=${IAM_ENABLED:-}, APP_ENV=${APP_ENV:-})"
+        ./switch-auth-mode.sh "${AUTH_MODE}" || echo "⚠️ switch-auth-mode.sh failed (continuing...)"
+    fi
 fi
 
 # Copy public assets to shared volume (only if PUBLIC_VOLUME is set and exists)

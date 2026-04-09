@@ -40,7 +40,7 @@ if [ -d "${SITE_DIR}/.git" ]; then
     cd "../../"
 else
     echo "📥 Repository not found, cloning from ${REPO_URL}..."
-    if git clone -b iam-service "${REPO_URL}" "${SITE_DIR}"; then
+    if git clone -b siimut-sso "${REPO_URL}" "${SITE_DIR}"; then
         echo "✅ Git clone successful!"
     else
         echo "❌ Git clone failed! Check URL and network."

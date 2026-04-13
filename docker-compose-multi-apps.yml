@@ -9,7 +9,7 @@ services:
     container_name: ${STACK_NAME:-multi}-web
     ports:
       - "8000:8000"  # SIIMUT
-      # - "8200:8200"  # IKP
+      - "8200:8200"  # IKP
       - "8100:8100"  # IAM Server
     volumes:
       - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -18,16 +18,16 @@ services:
       - siimut_public:/var/www/siimut/public:ro
       - siimut_storage:/var/www/siimut/storage:ro
       # IKP
-      # - ikp_public:/var/www/ikp/public:ro
-      # - ikp_storage:/var/www/ikp/storage:ro
+      - ikp_public:/var/www/ikp/public:ro
+      - ikp_storage:/var/www/ikp/storage:ro
       # IAM (optional)
       - iam_public:/var/www/iam/public:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       app-siimut:
         condition: service_healthy
-      # app-ikp:
-      #   condition: service_healthy
+      app-ikp:
+        condition: service_healthy
       app-iam:
         condition: service_healthy
     restart: unless-stopped
@@ -229,145 +229,145 @@ services:
   ####################################################################################################
   # Apps IKP (New Application)
   ####################################################################################################
-  # app-ikp:
-  #   build:
-  #     context: .
-  #     dockerfile: DockerNew/php/Dockerfile.ikp-registry
-  #     args:
-  #       APP_DIR: ikp
-  #       APP_NAME: "IKP Application"
-  #       APP_ENV: local
-  #       DB_HOST: database-service
-  #       DB_USERNAME: ikp_user
-  #       DB_PASSWORD: ikp-password
-  #       DB_DATABASE: ikp_db
-  #       AWS_ACCESS_KEY_ID: admin
-  #       AWS_SECRET_ACCESS_KEY: password
-  #       AWS_BUCKET: ikp
-  #       # AWS_URL: http://192.168.1.9:9090/ikp
-  #       AWS_URL: http://192.168.1.9:9090/ikp
-  #       AWS_ENDPOINT: http://minio:9090
-  #   container_name: ikp-app
-  #   working_dir: /var/www/ikp
-  #   environment:
-  #     APP_ENV: local
-  #     APP_WORKDIR: /var/www/ikp
-  #     PUBLIC_VOLUME: /var/www/ikp/public
-  #     # APP_URL: "http://192.168.1.9:8200"
-  #     APP_URL: "http://192.168.1.9:8200"
-  #     DB_HOST: database-service
-  #     DB_USERNAME: ikp_user
-  #     DB_PASSWORD: ikp-password
-  #     DB_DATABASE: ikp_db
-  #     SKIP_PUBLIC_SYNC: "true"
-  #     AWS_ACCESS_KEY_ID: admin
-  #     AWS_SECRET_ACCESS_KEY: password
-  #     AWS_BUCKET: ikp
-  #     # AWS_URL: http://192.168.1.9:9090/ikp
-  #     AWS_URL: http://192.168.1.9:9090/ikp
-  #     AWS_ENDPOINT: http://minio:9090
-  #   volumes:
-  #     - ikp_storage:/var/www/ikp/storage
-  #     - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-  #     - ikp_public:/var/www/ikp/public
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 1.5G
-  #         cpus: "1.5"
-  #       reservations:
-  #         memory: 768M
-  #         cpus: "0.75"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s
+  app-ikp:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.ikp-registry
+      args:
+        APP_DIR: ikp
+        APP_NAME: "IKP Application"
+        APP_ENV: local
+        DB_HOST: database-service
+        DB_USERNAME: ikp_user
+        DB_PASSWORD: ikp-password
+        DB_DATABASE: ikp_db
+        AWS_ACCESS_KEY_ID: admin
+        AWS_SECRET_ACCESS_KEY: password
+        AWS_BUCKET: ikp
+        # AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_ENDPOINT: http://minio:9090
+    container_name: ikp-app
+    working_dir: /var/www/ikp
+    environment:
+      APP_ENV: local
+      APP_WORKDIR: /var/www/ikp
+      PUBLIC_VOLUME: /var/www/ikp/public
+      # APP_URL: "http://192.168.1.9:8200"
+      APP_URL: "http://192.168.1.9:8200"
+      DB_HOST: database-service
+      DB_USERNAME: ikp_user
+      DB_PASSWORD: ikp-password
+      DB_DATABASE: ikp_db
+      SKIP_PUBLIC_SYNC: "true"
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_BUCKET: ikp
+      # AWS_URL: http://192.168.1.9:9090/ikp
+      AWS_URL: http://192.168.1.9:9090/ikp
+      AWS_ENDPOINT: http://minio:9090
+    volumes:
+      - ikp_storage:/var/www/ikp/storage
+      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
+      - ikp_public:/var/www/ikp/public
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.5"
+        reservations:
+          memory: 768M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  # queue-ikp:
-  #   build:
-  #     context: .
-  #     dockerfile: DockerNew/php/Dockerfile.ikp-registry
-  #     args:
-  #       APP_DIR: ikp
-  #       APP_NAME: "IKP Application"
-  #       APP_ENV: production
-  #       DB_HOST: database-service
-  #       DB_USERNAME: ikp_user
-  #       DB_PASSWORD: ikp-password
-  #       DB_DATABASE: ikp_db
-  #       AWS_ACCESS_KEY_ID: admin
-  #       AWS_SECRET_ACCESS_KEY: password
-  #       AWS_BUCKET: ikp
-  #       AWS_URL: http://192.168.1.9:9090/ikp
-  #       AWS_ENDPOINT: http://minio:9090
-  #   container_name: ikp-queue
-  #   working_dir: /var/www/ikp
-  #   environment:
-  #     DB_HOST: database-service
-  #     DB_USER: ikp_user
-  #     DB_PASSWORD: ikp-password
-  #   volumes:
-  #     - ikp_storage:/var/www/ikp/storage
-  #     - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-  #   entrypoint: ["php"]
-  #   command: >
-  #     artisan queue:work
-  #       --sleep=5
-  #       --tries=3
-  #       --timeout=120
-  #       --max-jobs=500
-  #       --max-time=3600
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 512M
-  #         cpus: "1.0"
-  #       reservations:
-  #         memory: 128M
-  #         cpus: "0.25"
+  queue-ikp:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.ikp-registry
+      args:
+        APP_DIR: ikp
+        APP_NAME: "IKP Application"
+        APP_ENV: production
+        DB_HOST: database-service
+        DB_USERNAME: ikp_user
+        DB_PASSWORD: ikp-password
+        DB_DATABASE: ikp_db
+        AWS_ACCESS_KEY_ID: admin
+        AWS_SECRET_ACCESS_KEY: password
+        AWS_BUCKET: ikp
+        AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_ENDPOINT: http://minio:9090
+    container_name: ikp-queue
+    working_dir: /var/www/ikp
+    environment:
+      DB_HOST: database-service
+      DB_USER: ikp_user
+      DB_PASSWORD: ikp-password
+    volumes:
+      - ikp_storage:/var/www/ikp/storage
+      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan queue:work
+        --sleep=5
+        --tries=3
+        --timeout=120
+        --max-jobs=500
+        --max-time=3600
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
-  # scheduler-ikp:
-  #   build:
-  #     context: .
-  #     dockerfile: DockerNew/php/Dockerfile.ikp-registry
-  #     args:
-  #       APP_DIR: ikp
-  #       APP_NAME: "IKP Application"
-  #       APP_ENV: production
-  #       DB_HOST: database-service
-  #       DB_USERNAME: ikp_user
-  #       DB_PASSWORD: ikp-password
-  #       DB_DATABASE: ikp_db
-  #       AWS_ACCESS_KEY_ID: admin
-  #       AWS_SECRET_ACCESS_KEY: password
-  #       AWS_BUCKET: ikp
-  #       AWS_URL: http://192.168.1.9:9090/ikp
-  #       AWS_ENDPOINT: http://minio:9090
-  #   container_name: ikp-scheduler
-  #   working_dir: /var/www/ikp
-  #   environment:
-  #     DB_HOST: database-service
-  #     DB_USER: ikp_user
-  #     DB_PASSWORD: ikp-password
-  #   volumes:
-  #     - ikp_storage:/var/www/ikp/storage
-  #     - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-  #   entrypoint: ["php"]
-  #   command: >
-  #     artisan schedule:work
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 256M
-  #         cpus: "0.25"
-  #       reservations:
-  #         memory: 128M
-  #         cpus: "0.125"
+  scheduler-ikp:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.ikp-registry
+      args:
+        APP_DIR: ikp
+        APP_NAME: "IKP Application"
+        APP_ENV: production
+        DB_HOST: database-service
+        DB_USERNAME: ikp_user
+        DB_PASSWORD: ikp-password
+        DB_DATABASE: ikp_db
+        AWS_ACCESS_KEY_ID: admin
+        AWS_SECRET_ACCESS_KEY: password
+        AWS_BUCKET: ikp
+        AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_ENDPOINT: http://minio:9090
+    container_name: ikp-scheduler
+    working_dir: /var/www/ikp
+    environment:
+      DB_HOST: database-service
+      DB_USER: ikp_user
+      DB_PASSWORD: ikp-password
+    volumes:
+      - ikp_storage:/var/www/ikp/storage
+      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
+    entrypoint: ["php"]
+    command: >
+      artisan schedule:work
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 128M
+          cpus: "0.125"
 
 
   ####################################################################################################
@@ -523,8 +523,8 @@ volumes:
   # ====== PUBLIC ASSETS (untuk Nginx serve static files) ======
   siimut_public:
     driver: local
-  # ikp_public:
-  #   driver: local
+  ikp_public:
+    driver: local
   iam_public:
     driver: local
 
@@ -536,10 +536,10 @@ volumes:
     driver: local
 
   # IKP
-  # ikp_storage:
-  #   driver: local
-  # ikp_bootstrap_cache:
-  #   driver: local
+  ikp_storage:
+    driver: local
+  ikp_bootstrap_cache:
+    driver: localk
 
   # # IAM
   iam_storage:

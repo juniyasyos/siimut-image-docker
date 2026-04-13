@@ -12,7 +12,7 @@ fi
 
 APP_DIR="${APP_DIR:-ikp}"
 REPO_URL="${REPO_URL:-https://github.com/juniyasyos/ikp.git}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-iam-app}"
 SITE_DIR="site/${APP_DIR}"
 
 # Database variables (untuk reference)
@@ -70,7 +70,7 @@ else
         exit 1
     fi
 fi
-
+x
 echo ""
 echo "✅ IKP site folder prepared successfully!"
 

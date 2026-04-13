@@ -53,7 +53,7 @@ $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" ps 2>/dev/null | grep -E "siimut|ikp|iam|
 echo ""
 
 # Detect app containers from compose file (app, queue, scheduler)
-APP_CONTAINERS=$(grep "container_name:" "$DOCKER_COMPOSE_FILE" | grep -E "siimut|ikp|iam" | sed 's/.*container_name: //' | sed 's/\${[^}]*}/multi/g' | sort -u)
+APP_CONTAINERS=$(grep "container_name:" "$DOCKER_COMPOSE_FILE" | grep -E "app-|queue-|scheduler-" | sed 's/.*container_name: //' | sed 's/\${[^}]*}/multi/g' | sort -u)
 
 echo -e "${YELLOW}Detected containers from compose file:${NC}"
 echo "$APP_CONTAINERS" | sed 's/^/  /'
@@ -63,13 +63,15 @@ echo ""
 check_app() {
     local CONTAINER=$1
     
-    # Extract app name and type from container name
-    # siimut-app -> siimut, siimut-queue -> siimut, etc
-    local APP_NAME=$(echo "$CONTAINER" | sed 's/-\(app\|queue\|scheduler\)$//')
-    local CONTAINER_TYPE=$(echo "$CONTAINER" | sed 's/^[^-]*-//')
+    # Extract container type and app name from container name
+    # app-siimut -> app, siimut
+    # queue-siimut -> queue, siimut
+    # scheduler-siimut -> scheduler, siimut
+    local CONTAINER_TYPE=$(echo "$CONTAINER" | cut -d'-' -f1)
+    local APP_NAME=$(echo "$CONTAINER" | cut -d'-' -f2-)
     local APP_PATH="/var/www/$APP_NAME"
     
-    echo -e "\n${BLUE}═══ Checking: $CONTAINER (type: $CONTAINER_TYPE) ═══${NC}"
+    echo -e "\n${BLUE}═══ Checking: $CONTAINER (type: $CONTAINER_TYPE, app: $APP_NAME) ═══${NC}"
     
     # 1. Check if container exists and is running
     # Try to get container status
@@ -130,9 +132,10 @@ check_app() {
 fix_app() {
     local CONTAINER=$1
     
-    # Extract app name from container name
-    local APP_NAME=$(echo "$CONTAINER" | sed 's/-\(app\|queue\|scheduler\)$//')
-    local CONTAINER_TYPE=$(echo "$CONTAINER" | sed 's/^[^-]*-//')
+    # Extract container type and app name from container name
+    # app-siimut -> app, siimut
+    local CONTAINER_TYPE=$(echo "$CONTAINER" | cut -d'-' -f1)
+    local APP_NAME=$(echo "$CONTAINER" | cut -d'-' -f2-)
     local APP_PATH="/var/www/$APP_NAME"
     
     # Only fix app containers (not queue or scheduler)
@@ -200,7 +203,7 @@ while true; do
         3)
             echo -e "\n${YELLOW}⚠️  Force fixing all app containers...${NC}"
             for CONTAINER in $APP_CONTAINERS; do
-                CONTAINER_TYPE=$(echo "$CONTAINER" | sed 's/^[^-]*-//')
+                CONTAINER_TYPE=$(echo "$CONTAINER" | cut -d'-' -f1)
                 if [ "$CONTAINER_TYPE" = "app" ]; then
                     fix_app "$CONTAINER"
                 fi
@@ -208,7 +211,7 @@ while true; do
             ;;
         
         4)
-            echo -n "Container name [e.g., siimut-app, ikp-app, iam-app]: "
+            echo -n "Container name [e.g., app-siimut, app-ikp, app-iam]: "
             read container_name
             echo -e "\n${BLUE}📋 Entrypoint logs for $container_name (last 50 lines):${NC}"
             $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" logs "$container_name" --tail=50 2>/dev/null | grep -E "Livewire|vendor|publish|📦|✅|❌" || echo "No Livewire-related logs found"

@@ -236,7 +236,7 @@ services:
       args:
         APP_DIR: ikp
         APP_NAME: "IKP Application"
-        APP_ENV: local
+        APP_ENV: production
         DB_HOST: database-service
         DB_USERNAME: ikp_user
         DB_PASSWORD: ikp-password
@@ -244,17 +244,18 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: ikp
-        # AWS_URL: http://192.168.1.9:9090/ikp
-        AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_URL: http://minio:9090/ikp
         AWS_ENDPOINT: http://minio:9090
     container_name: ikp-app
     working_dir: /var/www/ikp
+    env_file:
+      - ./env/.env.ikp
     environment:
-      APP_ENV: local
+      APP_ENV: production
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
-      # APP_URL: "http://192.168.1.9:8200"
       APP_URL: "http://192.168.1.9:8200"
+      TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: ikp_user
       DB_PASSWORD: ikp-password
@@ -263,9 +264,22 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_BUCKET: ikp
-      # AWS_URL: http://192.168.1.9:9090/ikp
-      AWS_URL: http://192.168.1.9:9090/ikp
+      AWS_URL: http://minio:9090/ikp
       AWS_ENDPOINT: http://minio:9090
+      # SSO Configuration - Override from compose
+      USE_SSO: "true"
+      IAM_ENABLED: "true"
+      # User browser OAuth/login should point to public gateway URL.
+      IAM_HOST: "http://192.168.1.9:8100"
+      IAM_BASE_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
+      # Internal container verification & API calls use Docker network service name
+      IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
+      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
+      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
+      IAM_LOGIN_ROUTE: "/login"
+      IAM_CALLBACK_ROUTE: "/callback"
+      IAM_APP_KEY: "ikp"
     volumes:
       - ikp_storage:/var/www/ikp/storage
       - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
@@ -301,13 +315,16 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: ikp
-        AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_URL: http://minio:9090/ikp
         AWS_ENDPOINT: http://minio:9090
     container_name: ikp-queue
     working_dir: /var/www/ikp
+    env_file:
+      - ./env/.env.ikp
     environment:
+      APP_ENV: production
       DB_HOST: database-service
-      DB_USER: ikp_user
+      DB_USERNAME: ikp_user
       DB_PASSWORD: ikp-password
     volumes:
       - ikp_storage:/var/www/ikp/storage
@@ -345,13 +362,16 @@ services:
         AWS_ACCESS_KEY_ID: admin
         AWS_SECRET_ACCESS_KEY: password
         AWS_BUCKET: ikp
-        AWS_URL: http://192.168.1.9:9090/ikp
+        AWS_URL: http://minio:9090/ikp
         AWS_ENDPOINT: http://minio:9090
     container_name: ikp-scheduler
     working_dir: /var/www/ikp
+    env_file:
+      - ./env/.env.ikp
     environment:
+      APP_ENV: production
       DB_HOST: database-service
-      DB_USER: ikp_user
+      DB_USERNAME: ikp_user
       DB_PASSWORD: ikp-password
     volumes:
       - ikp_storage:/var/www/ikp/storage

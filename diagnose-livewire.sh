@@ -27,21 +27,28 @@ if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
     exit 1
 fi
 
-# Detect apps from compose file
-APPS=$(grep "container_name:" "$DOCKER_COMPOSE_FILE" | grep -E "siimut|ikp|iam" | grep "app" | sed 's/.*container_name: //' | sed 's/-app//' | sort -u)
+# Detect app containers from compose file (app, queue, scheduler)
+APP_CONTAINERS=$(grep "container_name:" "$DOCKER_COMPOSE_FILE" | grep -E "siimut|ikp|iam" | sed 's/.*container_name: //' | sort -u)
 
-echo -e "${YELLOW}Detected apps:${NC} $(echo $APPS | tr '\n' ' ')\n"
+echo -e "${YELLOW}Detected containers:${NC}"
+echo "$APP_CONTAINERS" | sed 's/^/  /'
+echo ""
 
-# Function to check single app
+# Function to check single container
 check_app() {
-    local APP=$1
-    local APP_PATH="/var/www/$APP"
+    local CONTAINER=$1
     
-    echo -e "\n${BLUE}═══ Checking: $APP ═══${NC}"
+    # Extract app name and type from container name
+    # siimut-app -> siimut, siimut-queue -> siimut, etc
+    local APP_NAME=$(echo "$CONTAINER" | sed 's/-\(app\|queue\|scheduler\)$//')
+    local CONTAINER_TYPE=$(echo "$CONTAINER" | sed 's/^[^-]*-//')
+    local APP_PATH="/var/www/$APP_NAME"
+    
+    echo -e "\n${BLUE}═══ Checking: $CONTAINER (type: $CONTAINER_TYPE) ═══${NC}"
     
     # 1. Check if container exists and is running
-    if ! docker compose -f "$DOCKER_COMPOSE_FILE" ps "${APP}-app" 2>/dev/null | grep -q "Up"; then
-        echo -e "${RED}  ❌ Container not running: ${APP}-app${NC}"
+    if ! docker compose -f "$DOCKER_COMPOSE_FILE" ps "$CONTAINER" 2>/dev/null | grep -q "Up"; then
+        echo -e "${RED}  ❌ Container not running: $CONTAINER${NC}"
         return 1
     fi
     echo -e "${GREEN}  ✅ Container is running${NC}"
@@ -151,10 +158,10 @@ while true; do
             echo -n "App name [siimut/ikp/iam]: "
             read app_name
             echo -e "\n${BLUE}📋 Entrypoint logs for $app_name:${NC}"
-            docker compose -f "$DOCKER_COMPOSE_FILE" logs "${app_name}-app" --tail=50 | grep -E "Livewire|icture|vendor|publish" || echo "No Livewire-related logs found"
+            docker compose -f "$DOCKER_COMPOSE_FILE" logs "app-${app_name}" --tail=50 | grep -E "Livewire|icture|vendor|publish" || echo "No Livewire-related logs found"
             
             echo -e "\n${BLUE}📋 Publish log (if exists):${NC}"
-            docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${app_name}-app" cat /tmp/livewire-publish.log 2>/dev/null || echo "Log not found"
+            docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "app-${app_name}" cat /tmp/livewire-publish.log 2>/dev/null || echo "Log not found"
             ;;
         
         5)

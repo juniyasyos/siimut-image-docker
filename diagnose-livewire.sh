@@ -16,6 +16,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 DOCKER_COMPOSE_FILE="${1:-docker-compose-multi-apps.yml}"
+COMPOSE_CMD="docker compose"
 
 echo -e "${BLUE}======================================"
 echo "🔍 Livewire 404 - Server Diagnosis Tool"
@@ -24,13 +25,37 @@ echo "======================================${NC}\n"
 # Check if compose file exists
 if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
     echo -e "${RED}❌ ERROR: File not found: $DOCKER_COMPOSE_FILE${NC}"
+    echo "   Current directory: $(pwd)"
+    echo "   Please run from directory containing docker-compose-multi-apps.yml"
     exit 1
 fi
 
-# Detect app containers from compose file (app, queue, scheduler)
-APP_CONTAINERS=$(grep "container_name:" "$DOCKER_COMPOSE_FILE" | grep -E "siimut|ikp|iam" | sed 's/.*container_name: //' | sort -u)
+# Try to detect docker compose command (newer vs older)
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}❌ ERROR: docker not found in PATH${NC}"
+    exit 1
+fi
 
-echo -e "${YELLOW}Detected containers:${NC}"
+if ! $COMPOSE_CMD version &>/dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+    if ! $COMPOSE_CMD version &>/dev/null 2>&1; then
+        echo -e "${RED}❌ ERROR: Neither 'docker compose' nor 'docker-compose' found${NC}"
+        exit 1
+    fi
+fi
+
+echo -e "${YELLOW}Using docker command:${NC} $COMPOSE_CMD"
+echo -e "${YELLOW}Compose file:${NC} $DOCKER_COMPOSE_FILE\n"
+
+# Show currently running containers first
+echo -e "${BLUE}📋 Currently running containers:${NC}"
+$COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" ps 2>/dev/null | grep -E "siimut|ikp|iam|web" || echo "  (none found or error)"
+echo ""
+
+# Detect app containers from compose file (app, queue, scheduler)
+APP_CONTAINERS=$(grep "container_name:" "$DOCKER_COMPOSE_FILE" | grep -E "siimut|ikp|iam" | sed 's/.*container_name: //' | sed 's/\${[^}]*}/multi/g' | sort -u)
+
+echo -e "${YELLOW}Detected containers from compose file:${NC}"
 echo "$APP_CONTAINERS" | sed 's/^/  /'
 echo ""
 
@@ -47,11 +72,21 @@ check_app() {
     echo -e "\n${BLUE}═══ Checking: $CONTAINER (type: $CONTAINER_TYPE) ═══${NC}"
     
     # 1. Check if container exists and is running
-    if ! docker compose -f "$DOCKER_COMPOSE_FILE" ps "$CONTAINER" 2>/dev/null | grep -q "Up"; then
-        echo -e "${RED}  ❌ Container not running: $CONTAINER${NC}"
+    # Try to get container status
+    local STATUS=$($COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" ps "$CONTAINER" 2>/dev/null | grep "$CONTAINER" | awk '{print $(NF-1)}' || echo "ERROR")
+    
+    if [ "$STATUS" = "ERROR" ] || ! $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" ps "$CONTAINER" 2>/dev/null | grep -q "$CONTAINER"; then
+        echo -e "${RED}  ❌ Container not found or not running: $CONTAINER${NC}"
+        echo -e "${YELLOW}     Hint: Container might be named differently or not started${NC}"
         return 1
     fi
-    echo -e "${GREEN}  ✅ Container is running${NC}"
+    
+    if echo "$STATUS" | grep -q "Up"; then
+        echo -e "${GREEN}  ✅ Container is running (Status: $STATUS)${NC}"
+    else
+        echo -e "${RED}  ❌ Container not running (Status: $STATUS)${NC}"
+        return 1
+    fi
     
     # Only check Livewire for app containers (not queue or scheduler)
     if [ "$CONTAINER_TYPE" != "app" ]; then
@@ -60,20 +95,20 @@ check_app() {
     fi
     
     # 2. Check Livewire folder
-    if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -d "${APP_PATH}/public/vendor/livewire" 2>/dev/null; then
+    if $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -d "${APP_PATH}/public/vendor/livewire" 2>/dev/null; then
         echo -e "${GREEN}  ✅ Folder exists: public/vendor/livewire/${NC}"
         
         # 3. Check main file
-        if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -f "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null; then
-            FILE_SIZE=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" stat -c%s "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null || echo "unknown")
+        if $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -f "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null; then
+            FILE_SIZE=$($COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" stat -c%s "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null || echo "unknown")
             echo -e "${GREEN}  ✅ File exists: livewire.min.js ($FILE_SIZE bytes)${NC}"
         else
             echo -e "${RED}  ❌ File missing: livewire.min.js${NC}"
         fi
         
         # 4. Check symlink
-        if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -L "${APP_PATH}/public/livewire" 2>/dev/null; then
-            TARGET=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" readlink "${APP_PATH}/public/livewire" 2>/dev/null)
+        if $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -L "${APP_PATH}/public/livewire" 2>/dev/null; then
+            TARGET=$($COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" readlink "${APP_PATH}/public/livewire" 2>/dev/null)
             echo -e "${GREEN}  ✅ Symlink exists: public/livewire -> $TARGET${NC}"
         else
             echo -e "${YELLOW}  ⚠️  Symlink missing (but folder might still work)${NC}"
@@ -83,7 +118,7 @@ check_app() {
         
         # Debug
         echo -e "${YELLOW}  📋 Contents of public/vendor/:${NC}"
-        docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" sh -c "ls -1 ${APP_PATH}/public/vendor/ 2>/dev/null || echo '(directory empty or not found)'" | sed 's/^/    /'
+        $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" sh -c "ls -1 ${APP_PATH}/public/vendor/ 2>/dev/null || echo '(directory empty or not found)'" | sed 's/^/    /'
         
         return 1
     fi
@@ -109,7 +144,7 @@ fix_app() {
     
     # Run publish command
     echo -e "  📦 Running livewire:publish..."
-    if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" sh -c "cd ${APP_PATH} && php artisan livewire:publish --assets" 2>&1 | tail -3; then
+    if $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" sh -c "cd ${APP_PATH} && php artisan livewire:publish --assets" 2>&1 | tail -3; then
         echo -e "${GREEN}  ✓ Publish command completed${NC}"
     else
         echo -e "${YELLOW}  ⚠️ Publish command had issues${NC}"
@@ -176,10 +211,10 @@ while true; do
             echo -n "Container name [e.g., siimut-app, ikp-app, iam-app]: "
             read container_name
             echo -e "\n${BLUE}📋 Entrypoint logs for $container_name (last 50 lines):${NC}"
-            docker compose -f "$DOCKER_COMPOSE_FILE" logs "$container_name" --tail=50 2>/dev/null | grep -E "Livewire|vendor|publish|📦|✅|❌" || echo "No Livewire-related logs found"
+            $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" logs "$container_name" --tail=50 2>/dev/null | grep -E "Livewire|vendor|publish|📦|✅|❌" || echo "No Livewire-related logs found"
             
             echo -e "\n${BLUE}📋 Publish log (if exists):${NC}"
-            docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$container_name" cat /tmp/livewire-publish.log 2>/dev/null || echo "Log not found"
+            $COMPOSE_CMD -f "$DOCKER_COMPOSE_FILE" exec -T "$container_name" cat /tmp/livewire-publish.log 2>/dev/null || echo "Log not found"
             ;;
         
         5)

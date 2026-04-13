@@ -53,21 +53,27 @@ check_app() {
     fi
     echo -e "${GREEN}  ✅ Container is running${NC}"
     
+    # Only check Livewire for app containers (not queue or scheduler)
+    if [ "$CONTAINER_TYPE" != "app" ]; then
+        echo -e "${YELLOW}  ℹ️  Skipping Livewire check for $CONTAINER_TYPE container${NC}"
+        return 0
+    fi
+    
     # 2. Check Livewire folder
-    if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" test -d "${APP_PATH}/public/vendor/livewire" 2>/dev/null; then
+    if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -d "${APP_PATH}/public/vendor/livewire" 2>/dev/null; then
         echo -e "${GREEN}  ✅ Folder exists: public/vendor/livewire/${NC}"
         
         # 3. Check main file
-        if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" test -f "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null; then
-            FILE_SIZE=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" stat -c%s "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null || echo "unknown")
+        if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -f "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null; then
+            FILE_SIZE=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" stat -c%s "${APP_PATH}/public/vendor/livewire/livewire.min.js" 2>/dev/null || echo "unknown")
             echo -e "${GREEN}  ✅ File exists: livewire.min.js ($FILE_SIZE bytes)${NC}"
         else
             echo -e "${RED}  ❌ File missing: livewire.min.js${NC}"
         fi
         
         # 4. Check symlink
-        if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" test -L "${APP_PATH}/public/livewire" 2>/dev/null; then
-            TARGET=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" readlink "${APP_PATH}/public/livewire" 2>/dev/null)
+        if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" test -L "${APP_PATH}/public/livewire" 2>/dev/null; then
+            TARGET=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" readlink "${APP_PATH}/public/livewire" 2>/dev/null)
             echo -e "${GREEN}  ✅ Symlink exists: public/livewire -> $TARGET${NC}"
         else
             echo -e "${YELLOW}  ⚠️  Symlink missing (but folder might still work)${NC}"
@@ -77,7 +83,7 @@ check_app() {
         
         # Debug
         echo -e "${YELLOW}  📋 Contents of public/vendor/:${NC}"
-        docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" sh -c "ls -1 ${APP_PATH}/public/vendor/ 2>/dev/null || echo '(directory empty or not found)'" | sed 's/^/    /'
+        docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" sh -c "ls -1 ${APP_PATH}/public/vendor/ 2>/dev/null || echo '(directory empty or not found)'" | sed 's/^/    /'
         
         return 1
     fi
@@ -87,14 +93,23 @@ check_app() {
 
 # Function to fix app
 fix_app() {
-    local APP=$1
-    local APP_PATH="/var/www/$APP"
+    local CONTAINER=$1
     
-    echo -e "\n${BLUE}🔧 Attempting to fix: $APP${NC}"
+    # Extract app name from container name
+    local APP_NAME=$(echo "$CONTAINER" | sed 's/-\(app\|queue\|scheduler\)$//')
+    local CONTAINER_TYPE=$(echo "$CONTAINER" | sed 's/^[^-]*-//')
+    local APP_PATH="/var/www/$APP_NAME"
+    
+    # Only fix app containers (not queue or scheduler)
+    if [ "$CONTAINER_TYPE" != "app" ]; then
+        return 0
+    fi
+    
+    echo -e "\n${BLUE}🔧 Attempting to fix: $CONTAINER${NC}"
     
     # Run publish command
     echo -e "  📦 Running livewire:publish..."
-    if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "${APP}-app" sh -c "cd ${APP_PATH} && php artisan livewire:publish --assets" 2>&1 | tail -3; then
+    if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$CONTAINER" sh -c "cd ${APP_PATH} && php artisan livewire:publish --assets" 2>&1 | tail -3; then
         echo -e "${GREEN}  ✓ Publish command completed${NC}"
     else
         echo -e "${YELLOW}  ⚠️ Publish command had issues${NC}"
@@ -102,7 +117,7 @@ fix_app() {
     
     # Verify
     echo -e "  🔍 Verifying..."
-    check_app "$APP"
+    check_app "$CONTAINER"
 }
 
 # Main menu
@@ -125,8 +140,8 @@ while true; do
         1)
             echo -e "\n${BLUE}📊 Running diagnosis...${NC}"
             ALL_OK=true
-            for APP in $APPS; do
-                if ! check_app "$APP"; then
+            for CONTAINER in $APP_CONTAINERS; do
+                if ! check_app "$CONTAINER"; then
                     ALL_OK=false
                 fi
             done
@@ -140,28 +155,31 @@ while true; do
         
         2)
             echo -e "\n${BLUE}🔧 Running diagnosis with auto-fix...${NC}"
-            for APP in $APPS; do
-                if ! check_app "$APP"; then
-                    fix_app "$APP"
+            for CONTAINER in $APP_CONTAINERS; do
+                if ! check_app "$CONTAINER"; then
+                    fix_app "$CONTAINER"
                 fi
             done
             ;;
         
         3)
-            echo -e "\n${YELLOW}⚠️  Force fixing all apps...${NC}"
-            for APP in $APPS; do
-                fix_app "$APP"
+            echo -e "\n${YELLOW}⚠️  Force fixing all app containers...${NC}"
+            for CONTAINER in $APP_CONTAINERS; do
+                CONTAINER_TYPE=$(echo "$CONTAINER" | sed 's/^[^-]*-//')
+                if [ "$CONTAINER_TYPE" = "app" ]; then
+                    fix_app "$CONTAINER"
+                fi
             done
             ;;
         
         4)
-            echo -n "App name [siimut/ikp/iam]: "
-            read app_name
-            echo -e "\n${BLUE}📋 Entrypoint logs for $app_name:${NC}"
-            docker compose -f "$DOCKER_COMPOSE_FILE" logs "app-${app_name}" --tail=50 | grep -E "Livewire|icture|vendor|publish" || echo "No Livewire-related logs found"
+            echo -n "Container name [e.g., siimut-app, ikp-app, iam-app]: "
+            read container_name
+            echo -e "\n${BLUE}📋 Entrypoint logs for $container_name (last 50 lines):${NC}"
+            docker compose -f "$DOCKER_COMPOSE_FILE" logs "$container_name" --tail=50 2>/dev/null | grep -E "Livewire|vendor|publish|📦|✅|❌" || echo "No Livewire-related logs found"
             
             echo -e "\n${BLUE}📋 Publish log (if exists):${NC}"
-            docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "app-${app_name}" cat /tmp/livewire-publish.log 2>/dev/null || echo "Log not found"
+            docker compose -f "$DOCKER_COMPOSE_FILE" exec -T "$container_name" cat /tmp/livewire-publish.log 2>/dev/null || echo "Log not found"
             ;;
         
         5)

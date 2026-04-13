@@ -202,39 +202,77 @@ if [ -d storage ]; then
   mkdir -p storage/logs storage/app/public
   mkdir -p bootstrap/cache
   
-  # Create public/livewire symlink if not exists (Livewire asset serving)
-  if [ ! -L public/livewire ]; then
-    if [ -d public/vendor/livewire ]; then
+  # Publish and verify Livewire assets (CRITICAL - do this BEFORE symlink)
+  echo "📦 Ensuring Livewire assets are published..."
+  
+  LIVEWIRE_MAX_RETRIES=3
+  LIVEWIRE_RETRY_COUNT=0
+  LIVEWIRE_PUBLISHED=0
+  
+  while [ $LIVEWIRE_RETRY_COUNT -lt $LIVEWIRE_MAX_RETRIES ] && [ $LIVEWIRE_PUBLISHED -eq 0 ]; do
+    LIVEWIRE_RETRY_COUNT=$((LIVEWIRE_RETRY_COUNT + 1))
+    
+    # Check if assets already exist
+    if [ -d public/vendor/livewire ] && [ -f public/vendor/livewire/livewire.min.js ]; then
+      echo "✅ Livewire assets already present"
+      LIVEWIRE_PUBLISHED=1
+      break
+    fi
+    
+    # Attempt to publish
+    echo "  🔄 Attempt $LIVEWIRE_RETRY_COUNT/$LIVEWIRE_MAX_RETRIES: Running livewire:publish..."
+    if su-exec www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
+      echo "  ✓ Publish command succeeded"
+    else
+      echo "  ⚠️ Publish command had exit code > 0"
+    fi
+    
+    # Verify assets exist after publish attempt
+    if [ -d public/vendor/livewire ] && [ -f public/vendor/livewire/livewire.min.js ]; then
+      echo "  ✅ Livewire assets verified at public/vendor/livewire/"
+      LIVEWIRE_PUBLISHED=1
+      break
+    elif [ -d public/vendor/livewire ]; then
+      echo "  ⚠️ Directory exists but livewire.min.js missing. Contents:"
+      ls -la public/vendor/livewire/ | head -5
+    else
+      echo "  ❌ public/vendor/livewire directory not found"
+      
+      # Debug: show what's in public/vendor/
+      if [ -d public/vendor ]; then
+        echo "  📋 Available in public/vendor: $(ls -1 public/vendor/ 2>/dev/null | tr '\n' ' ')"
+      else
+        echo "  📋 public/vendor directory does not exist"
+      fi
+      
+      # Try alternative method
+      if [ $LIVEWIRE_RETRY_COUNT -eq 1 ] && [ -f vendor/bin/livewire ]; then
+        echo "  🔄 Trying vendor/bin/livewire (alternative)..."
+        su-exec www vendor/bin/livewire publish --assets 2>&1 || echo "  ⚠️ Alternative method also failed"
+      fi
+    fi
+    
+    # Wait before retry
+    if [ $LIVEWIRE_RETRY_COUNT -lt $LIVEWIRE_MAX_RETRIES ] && [ $LIVEWIRE_PUBLISHED -eq 0 ]; then
+      echo "  ⏳ Waiting 2 seconds before retry..."
+      sleep 2
+    fi
+  done
+  
+  # Create symlink (only if assets are actually present)
+  if [ -d public/vendor/livewire ]; then
+    if [ ! -L public/livewire ]; then
+      rm -f public/livewire  # Remove if it's a regular directory
       ln -s vendor/livewire public/livewire
       echo "✅ Created symlink: public/livewire -> vendor/livewire"
     else
-      echo "📦 Publishing Livewire assets..."
-      if ! su-exec www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
-        echo "⚠️ livewire:publish had issues. See log above."
-      fi
-      
-      # Check if assets were published
-      if [ -d public/vendor/livewire ]; then
-        ln -s vendor/livewire public/livewire
-        echo "✅ Livewire assets published and symlink created"
-      else
-        # Try alternative: vendor/bin/livewire if available
-        if [ -f vendor/bin/livewire ]; then
-          echo "🔄 Trying alternative livewire publish method..."
-          su-exec www vendor/bin/livewire publish --assets || true
-        fi
-        
-        # Final check
-        if [ -d public/vendor/livewire ]; then
-          ln -s vendor/livewire public/livewire
-          echo "✅ Livewire assets published (alternative method)"
-        else
-          echo "❌ ERROR: Livewire assets could not be published!"
-          echo "📋 Available vendor dirs: $(ls -1 public/vendor 2>/dev/null | head -5)"
-          echo "📋 Check /tmp/livewire-publish.log for details"
-        fi
-      fi
+      echo "✅ Symlink public/livewire -> vendor/livewire already exists"
     fi
+  else
+    echo "❌ CRITICAL: Livewire assets could not be published after $LIVEWIRE_MAX_RETRIES attempts!"
+    echo "📋 Check /tmp/livewire-publish.log for details"
+    echo "This will cause Livewire 404 errors in the application!"
+    # Don't exit - let app start anyway, but log the issue
   fi 
   
   # Clear stale cache files yang mungkin corrupt atau orphaned

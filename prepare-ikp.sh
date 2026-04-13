@@ -70,7 +70,7 @@ else
         exit 1
     fi
 fi
-x
+
 echo ""
 echo "✅ IKP site folder prepared successfully!"
 

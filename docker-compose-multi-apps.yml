@@ -539,7 +539,7 @@ volumes:
   ikp_storage:
     driver: local
   ikp_bootstrap_cache:
-    driver: localk
+    driver: local
 
   # # IAM
   iam_storage:

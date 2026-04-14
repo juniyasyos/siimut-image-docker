@@ -279,7 +279,7 @@ services:
       IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
       IAM_LOGIN_ROUTE: "/login"
       IAM_CALLBACK_ROUTE: "/callback"
-      IAM_APP_KEY: "ikp"
+      IAM_APP_KEY: "incident-reporting"
     volumes:
       - ikp_storage:/var/www/ikp/storage
       - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache

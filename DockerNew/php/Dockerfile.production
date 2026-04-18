@@ -11,7 +11,7 @@ ARG APP_NAME="Laravel Application"
 ARG APP_WORKDIR=/var/www/html
 
 # Sistem & build deps (prod-friendly)
-RUN apk add --no-cache \
+RUN apk add \
       tzdata bash shadow ca-certificates unzip \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \

@@ -1,53 +1,138 @@
-# Development files
+# ============================================
+# Aggressive Docker Build Context Exclusions
+# For SIIMUT Application Only
+# ============================================
+
+# ============================================
+# Version Control & Git
+# ============================================
 .git
 .gitignore
+.gitattributes
+.gitmodules
+
+# ============================================
+# Development Files & Documentation
+# ============================================
 README*.md
 *.md
+DEPLOYMENT-GUIDE.md
+CHANGE_LOG.md
+FIX_IMPLEMENTATION_COMPLETE.md
+LOGIN_CONDITIONAL_SETUP.md
+VERIFICATION_REPORT.md
+IMPLEMENTATION-SUMMARY.md
+TESTING-CHECKLIST.md
+QUICK_REFERENCE.txt
+API-TESTING-RESULTS.md
+TESTING-REPORT-*.md
+USER-SYNC-DEBUG-GUIDE.md
+CONFIGURATION_CHANGES_SUMMARY.md
 
-# Node modules dan cache
-**/node_modules
-**/npm-debug.log*
-**/yarn-debug.log*
-**/yarn-error.log*
+# ============================================
+# CI/CD & Scripts (not needed in image)
+# ============================================
+prepare-*.sh
+diagnose-*.sh
+install-docker.sh
+entrypoint-livewire-publish.sh
+.github/
+.gitlab-ci.yml
+.circleci/
 
-# Laravel storage dan cache (kecuali app/public)
-**/storage/logs/*
-**/storage/framework/cache/data/*
-**/storage/framework/sessions/*
-**/storage/framework/views/*
-**/bootstrap/cache/*
-!**/storage/app/
-!**/bootstrap/cache/.gitkeep
+# ============================================
+# Build & Package Managers
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+dist/
+build/
 
-# Docker files
-**/.dockerignore
-**/docker-compose*.yml
-**/Dockerfile*
+# ============================================
+# Unnecessary App Directories (Multi-repo)
+# Only SIIMUT needed, exclude others
+# ============================================
+site/ikp/
+site/iam-server/
 
-# Environment files
-**/.env*
-!**/.env.example
+# ============================================
+# Testing (not needed in production)
+# ============================================
+tests/
+phpunit.xml
+*.test.js
+*.spec.js
+test-*.php
+analyze-debug-logs.php
+debug-*.php
+verify-*.sh
 
-# IDE files
-**/.vscode
-**/.idea
-**/*.swp
-**/*.swo
+# ============================================
+# Documentation & Guides
+# ============================================
+docs/
+ansible/
 
-# OS files
-**/.DS_Store
-**/Thumbs.db
+# ============================================
+# Environment & Secrets
+# ============================================
+.env*
+!.env.example
+.env.local
 
-# Test files
-**/tests/
-**/phpunit.xml
+# ============================================
+# IDE & Editors
+# ============================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.vimrc
+.editorconfig
 
-# Build artifacts
-**/dist/
-**/build/
+# ============================================
+# OS Files
+# ============================================
+.DS_Store
+Thumbs.db
+.swp
+.swo
+*~
 
-# Logs
-**/*.log
+# ============================================
+# Docker Files (already in use)
+# ============================================
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+entrypoint*.sh
+
+# ============================================
+# Temporary & Cache
+# ============================================
+.cache/
+/tmp
+/temp
+*.log
+*.swp
+*.bak
+
+# ============================================
+# Version Control (tracked separately)
+# ============================================
+VERSION
+.env.docker
+.env.example.new
+
+# ============================================
+# Miscellaneous
+# ============================================
+.editorconfig
+.gitkeep
+cookies.txt
 
 # Temporary files  
 **/tmp/

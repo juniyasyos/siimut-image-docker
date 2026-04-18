@@ -1,7 +1,7 @@
-# =========================
-# Production SIIMUT Image for Registry
-# Self-contained, no external mounts needed
-# =========================
+# ============================================
+# Production SIIMUT Image for Docker Hub
+# Optimized: Build once, use 3x (app/queue/scheduler)
+# ============================================
 FROM php:8.4-fpm-alpine AS base
 
 ARG UID=1000
@@ -9,34 +9,33 @@ ARG GID=1000
 ARG TZ=Asia/Jakarta
 ARG APP_NAME="SIIMUT Application"
 
-# Sistem & build deps
+# Install system dependencies and PHP extensions
 RUN apk add \
-      tzdata bash shadow ca-certificates unzip su-exec \
+      tzdata bash shadow ca-certificates unzip \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
-      linux-headers curl openssl git vim \
+      curl openssl \
       $PHPIZE_DEPS \
   && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
   && echo "${TZ}" > /etc/timezone \
-  # PHP extensions
+  # Configure and install PHP extensions
   && docker-php-ext-configure intl \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install -j"$(nproc)" \
        intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd \
        bcmath exif pcntl sockets opcache \
-  # igbinary
-  && pecl install igbinary \
-  && docker-php-ext-enable igbinary \
-  # APCu (optional)
-  && (pecl install apcu && docker-php-ext-enable --ini-name 0-apc.ini apcu) || echo "APCu not available, skipping" \
-  # Cleanup
-  && apk del --no-network $PHPIZE_DEPS linux-headers \
+  # Install PECL extensions
+  && pecl install igbinary apcu \
+  && docker-php-ext-enable igbinary apcu \
+  # Cleanup build dependencies
+  && apk del --no-network $PHPIZE_DEPS \
   && rm -rf /var/cache/apk/* /tmp/*
 
+# Copy composer binary
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# User non-root
+# Create non-root user
 RUN addgroup -g "${GID}" www \
   && adduser -D -G www -u "${UID}" www \
   && sed -ri 's/^user = .*/user = www/' /usr/local/etc/php-fpm.d/www.conf \
@@ -44,116 +43,60 @@ RUN addgroup -g "${GID}" www \
 
 ENV APP_NAME=${APP_NAME}
 
-# =========================
-# Stage 2: Dependencies
-# =========================
-FROM base AS deps
+# ============================================
+# Stage 2: Build & Dependencies
+# ============================================
+FROM base AS builder
 
 ARG APP_DIR=siimut
 
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
-    COMPOSER_MEMORY_LIMIT=-1
+    COMPOSER_MEMORY_LIMIT=-1 \
+    COMPOSER_NO_INTERACTION=1
 
 WORKDIR /build
 
-# Copy composer.json first for better layer caching
-COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* /tmp/composer-files/
+# Copy only composer files first (better caching)
+COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* ./
 
-# Pre-install dependencies (this layer can be cached if composer files don't change)
+# Install composer dependencies with optimization
 RUN set -eux; \
-    mkdir -p /app; \
-    if [ -f /tmp/composer-files/composer.json ]; then \
-      echo ">> Pre-installing composer dependencies..."; \
-      cd /tmp/composer-files; \
-      composer install \
-        --no-interaction \
-        --no-dev \
-        --no-scripts \
-        --no-autoloader; \
-      cp -r vendor/ /app/; \
-    fi; \
-    rm -rf /tmp/composer-files
+    composer install \
+      --no-dev \
+      --prefer-dist \
+      --no-interaction \
+      --no-progress \
+      --no-scripts \
+      --optimize-autoloader \
+      --classmap-authoritative; \
+    rm -rf "$COMPOSER_CACHE_DIR"
 
-# Add build timestamp to force cache invalidation
-ARG BUILD_TIMESTAMP
-RUN echo "Build timestamp: ${BUILD_TIMESTAMP}" > /tmp/build.info
+# Copy entire application code
+COPY site/${APP_DIR}/ ./
 
-# Copy entire source code (this layer will always be rebuilt due to timestamp)
-COPY . .
-
-# Extract and finalize app from monorepo structure  
+# Finalize: dump autoloader and optimize
 RUN set -eux; \
-    echo ">> Building SIIMUT application from APP_DIR='${APP_DIR}'"; \
-    echo ">> Build info: $(cat /tmp/build.info)"; \
-    \
-    # Save vendor directory (already pre-installed)
-    if [ -d "/app/vendor" ]; then \
-      echo ">> Saving pre-installed vendor..."; \
-      mv /app/vendor /tmp/vendor-backup; \
+    composer dump-autoload --optimize --classmap-authoritative --no-scripts 2>/dev/null || true; \
+    # Try to run optimization if .env exists
+    if [ -f .env ]; then \
+      php artisan optimize 2>/dev/null || true; \
     fi; \
-    \
-    if [ -d "site/${APP_DIR}" ]; then \
-      echo ">> Using app from site/${APP_DIR}"; \
-      cp -r "site/${APP_DIR}/." "/app/"; \
-      # Show recent changes to verify source is up to date
-      echo ">> Recent changes in site/${APP_DIR}:"; \
-      find "site/${APP_DIR}" -type f -newer /tmp/build.info -ls 2>/dev/null | head -10 || true; \
-    elif [ -d "${APP_DIR}" ]; then \
-      echo ">> Using app from ${APP_DIR}"; \
-      cp -r "${APP_DIR}/." "/app/"; \
+    # Verify Livewire is present
+    if [ -d vendor/livewire ]; then \
+      echo "✅ Livewire verified"; \
     else \
-      echo ">> Using app from repository root"; \
-      cp -r . "/app/"; \
-    fi; \
-    \
-    # Restore vendor directory
-    if [ -d "/tmp/vendor-backup" ]; then \
-      echo ">> Restoring pre-installed vendor..."; \
-      if [ -d "/app/vendor" ]; then \
-        rm -rf /app/vendor; \
-      fi; \
-      mv /tmp/vendor-backup /app/vendor; \
-      echo ">> Vendor restored ($(du -sh /app/vendor | awk '{print $1}'))"; \
-    fi; \
-    \
-    cd /app; \
-    \
-    # Finalize composer setup
-    if [ -f composer.json ]; then \
-      echo ">> Finalizing composer setup..."; \
-      composer dump-autoload --optimize --classmap-authoritative --no-scripts; \
-      echo ">> Running artisan optimize..."; \
-      php artisan optimize || echo ">> artisan optimize skipped (no .env / APP_KEY not set)"; \
-    else \
-      echo ">> No composer.json found"; \
-    fi; \
-    \
-    # Verify vendor/livewire exists
-    if [ -d "/app/vendor/livewire" ]; then \
-      echo "✅ Livewire found at /app/vendor/livewire"; \
-    else \
-      echo "⚠️ WARNING: Livewire not found in vendor directory!"; \
-      echo "Available packages: $(ls -1 /app/vendor | wc -l) directories"; \
-    fi; \
-    \
-    # Show app structure to verify
-    echo ">> App structure:"; \
-    ls -la /app/ | head -10; \
-    echo ">> App size: $(du -sh /app/)"; \
-    \
-    # Cleanup
-    rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
+      echo "⚠️ Livewire not found in dependencies"; \
+    fi
 
-# =========================
+# ============================================
 
-# Stage 3: Runtime
-# =========================
+# ============================================
+# Stage 3: Runtime (Final Image)
+# ============================================
 FROM base AS runtime
 
 ARG TZ=Asia/Jakarta
 ARG APP_NAME="SIIMUT Application"
-
-# build-time arguments which also become optional default env values
 ARG DB_HOST
 ARG DB_USERNAME
 ARG DB_PASSWORD
@@ -165,10 +108,10 @@ ARG AWS_URL
 ARG AWS_ENDPOINT
 
 ENV APP_ENV=production \
+    APP_WORKDIR=/var/www/siimut \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
     PHP_MEMORY_LIMIT=512M \
     APP_NAME=${APP_NAME} \
-    APP_WORKDIR=/var/www/siimut \
     DB_HOST=${DB_HOST:-} \
     DB_USERNAME=${DB_USERNAME:-} \
     DB_PASSWORD=${DB_PASSWORD:-} \
@@ -178,21 +121,12 @@ ENV APP_ENV=production \
     AWS_BUCKET=${AWS_BUCKET:-} \
     AWS_URL=${AWS_URL:-} \
     AWS_ENDPOINT=${AWS_ENDPOINT:-}
-# show minio config at build time (cannot verify connectivity during build because network
-# to the "minio" service may not exist yet). this helps to ensure the correct arg was
-# passed through from docker-compose or build command.
-RUN echo "[build] AWS_ENDPOINT=${AWS_ENDPOINT:-<unset>}" && \
-    echo "[build] AWS_URL=${AWS_URL:-<unset>}" && \
-    # ensure docker-compose passes port 9090 in build args
-    echo "[build] extracted port=$(echo \"${AWS_ENDPOINT:-}\" | awk -F: '{print $NF}')" && \
-    if [ "$(echo \"${AWS_ENDPOINT:-}\" | awk -F: '{print $NF}')" != "9090" ]; then \
-        echo "[build] WARNING: AWS_ENDPOINT port not 9090"; \
-    fi
 
 WORKDIR ${APP_WORKDIR}
 
-# PHP tuning (production)
+# PHP Configuration (production optimized)
 RUN set -eux; \
+  # Laravel settings
   { \
     echo "memory_limit=${PHP_MEMORY_LIMIT}"; \
     echo "upload_max_filesize=64M"; \
@@ -206,6 +140,7 @@ RUN set -eux; \
     echo "log_errors=On"; \
     echo "error_log=/var/log/php_errors.log"; \
   } > /usr/local/etc/php/conf.d/laravel.ini; \
+  # OPcache optimization
   { \
     echo "opcache.enable=1"; \
     echo "opcache.enable_cli=0"; \
@@ -219,27 +154,27 @@ RUN set -eux; \
     echo "opcache.save_comments=1"; \
     echo "opcache.enable_file_override=1"; \
   } > /usr/local/etc/php/conf.d/opcache.ini; \
+  # APCu cache
   { \
     echo "apc.enabled=1"; \
     echo "apc.shm_size=128M"; \
     echo "apc.enable_cli=0"; \
     echo "apc.ttl=3600"; \
   } > /usr/local/etc/php/conf.d/apcu.ini; \
-  # FPM tuning
+  # PHP-FPM tuning for production
   sed -ri 's|^;?pm =.*|pm = dynamic|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.max_children =.*|pm.max_children = 50|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.start_servers =.*|pm.start_servers = 8|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.min_spare_servers =.*|pm.min_spare_servers = 4|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?pm\.max_spare_servers =.*|pm.max_spare_servers = 16|' /usr/local/etc/php-fpm.d/www.conf; \
-  sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests =  1000|' /usr/local/etc/php-fpm.d/www.conf; \
+  sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests = 1000|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf
 
-# Copy app from deps stage
-COPY --from=deps --chown=www:www /app ${APP_WORKDIR}
+# Copy application from builder stage
+COPY --from=builder --chown=www:www /build ${APP_WORKDIR}
 
-# Permissions & directory setup
+# Setup Laravel directories and permissions
 RUN set -eux; \
-    # Create all Laravel cache directories
     mkdir -p storage/framework/cache/data \
              storage/framework/sessions \
              storage/framework/views \
@@ -247,23 +182,18 @@ RUN set -eux; \
              storage/logs \
              storage/app/public \
              bootstrap/cache; \
-    # Set ownership
     chown -R www:www storage bootstrap/cache; \
-    # Set permissions (recursive write for cache dirs)
     chmod -R ug+rwX storage bootstrap/cache; \
-    # Ensure views directory is fully writable
     chmod -R 775 storage/framework/views; \
-    # Public assets
-    if [ -d public ]; then \
-      chmod -R 755 public; \
-    fi
+    if [ -d public ]; then chmod -R 755 public; fi
 
-# Entrypoint untuk copy public/ ke shared volume saat startup
+# Copy entrypoint script
 COPY DockerNew/php/entrypoint-registry.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 9000
 
+# Lightweight health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD php -r "exit(extension_loaded('opcache') ? 0 : 1);"
 

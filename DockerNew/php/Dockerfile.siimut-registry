@@ -15,6 +15,7 @@ RUN apk add \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev \
+      linux-headers \
       curl openssl \
       $PHPIZE_DEPS \
   && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
@@ -29,7 +30,7 @@ RUN apk add \
   && pecl install igbinary apcu \
   && docker-php-ext-enable igbinary apcu \
   # Cleanup build dependencies
-  && apk del --no-network $PHPIZE_DEPS \
+  && apk del --no-network $PHPIZE_DEPS linux-headers \
   && rm -rf /var/cache/apk/* /tmp/*
 
 # Copy composer binary

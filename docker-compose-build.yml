@@ -1,53 +1,80 @@
 ####################################################################################################
-# Docker Compose Build - SIIMUT Application
+# Docker Compose Build - Multi-App
 # 
-# Purpose: Build the SIIMUT application image once, tag it, and push to Docker Hub
-# 
-# Usage:
-#   # Build image (local)
-#   docker-compose -f docker-compose-build.yml build
-#
-#   # Or use build.sh for automated tagging & Docker Hub push
-#   ./build.sh        # Build only
-#   ./build.sh push   # Build & push to Docker Hub
-#
-# Image Output: siimut:latest (or siimut:VERSION from build.sh)
+# Purpose: Build SIIMUT, IKP, and IAM Server images with a single manifest.
+# Use build.sh for tagging and Docker Hub push.
 ####################################################################################################
-
-version: '3.8'
 
 services:
   ####################################################################################################
   # SIIMUT Build Service
-  # Single image built once, used for app/queue/scheduler containers
   ####################################################################################################
   siimut:
     build:
       context: .
       dockerfile: DockerNew/php/Dockerfile.siimut-registry
       args:
-        # Build-time arguments (customize as needed)
         UID: "1000"
         GID: "1000"
         TZ: "Asia/Jakarta"
         APP_NAME: "SIIMUT Application"
         APP_ENV: "production"
-        # Database config for build-time verification
+        APP_DIR: "siimut"
         DB_HOST: "database-service"
         DB_USERNAME: "siimut_user"
         DB_PASSWORD: "siimut-password"
         DB_DATABASE: "siimut_db"
-        # MinIO/S3 config for build-time verification
         AWS_ACCESS_KEY_ID: "admin"
         AWS_SECRET_ACCESS_KEY: "password"
         AWS_BUCKET: "siimut"
         AWS_URL: "http://minio:9090/siimut"
         AWS_ENDPOINT: "http://minio:9090"
-        # Build timestamp for cache management
         BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-    
-    # Image name - will be tagged by build.sh
     image: siimut:${VERSION:-latest}
-    
-    # Don't pull during build, use local cache
+    pull_policy: never
+
+  ####################################################################################################
+  # IKP Build Service
+  ####################################################################################################
+  ikp:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.ikp-registry
+      args:
+        UID: "1000"
+        GID: "1000"
+        TZ: "Asia/Jakarta"
+        APP_NAME: "IKP Application"
+        APP_ENV: "local"
+        APP_DEBUG: true
+        APP_DIR: "ikp"
+        DB_HOST: "database-service"
+        DB_USERNAME: "ikp_user"
+        DB_PASSWORD: "ikp-password"
+        DB_DATABASE: "ikp_db"
+        AWS_ACCESS_KEY_ID: "admin"
+        AWS_SECRET_ACCESS_KEY: "password"
+        AWS_BUCKET: "ikp"
+        AWS_URL: "http://minio:9090/ikp"
+        AWS_ENDPOINT: "http://minio:9090"
+        BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    image: ikp:${VERSION:-latest}
+    pull_policy: never
+
+  ####################################################################################################
+  # IAM Server Build Service
+  ####################################################################################################
+  iam-server:
+    build:
+      context: .
+      dockerfile: DockerNew/php/Dockerfile.iam-registry
+      args:
+        UID: "1000"
+        GID: "1000"
+        TZ: "Asia/Jakarta"
+        APP_NAME: "IAM Server"
+        APP_ENV: "production"
+        APP_DIR: "iam-server"
+        BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    image: iam-server:${VERSION:-latest}
     pull_policy: never

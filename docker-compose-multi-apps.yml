@@ -56,11 +56,11 @@ services:
   ####################################################################################################
   # Apps SIIMUT
   # Image built with: docker-compose -f docker-compose-build.yml build && ./build.sh push
-  # Pulled from Docker Hub: juni/siimut:VERSION
+  # Pulled from Docker Hub: juniyasyos/siimut:VERSION
   ####################################################################################################
   app-siimut:
-    image: juni/siimut:${VERSION:-latest}
-    pull_policy: always
+    image: juniyasyos/siimut:v3.0.0
+    pull_policy: missing
     container_name: siimut-app
     working_dir: /var/www/siimut
     env_file:
@@ -118,8 +118,8 @@ services:
       start_period: 60s
 
   queue-siimut:
-    image: juni/siimut:${VERSION:-latest}
-    pull_policy: always
+    image: juniyasyos/siimut:v3.0.0
+    pull_policy: missing
     container_name: siimut-queue
     working_dir: /var/www/siimut
     environment:
@@ -154,8 +154,8 @@ services:
       start_period: 60s
 
   scheduler-siimut:
-    image: juni/siimut:${VERSION:-latest}
-    pull_policy: always
+    image: juniyasyos/siimut:v3.0.0
+    pull_policy: missing
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
     environment:
@@ -189,28 +189,15 @@ services:
   # Apps IKP (New Application)
   ####################################################################################################
   app-ikp:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.ikp-registry
-      args:
-        APP_DIR: ikp
-        APP_NAME: "IKP Application"
-        APP_ENV: production
-        DB_HOST: database-service
-        DB_USERNAME: ikp_user
-        DB_PASSWORD: ikp-password
-        DB_DATABASE: ikp_db
-        AWS_ACCESS_KEY_ID: admin
-        AWS_SECRET_ACCESS_KEY: password
-        AWS_BUCKET: ikp
-        AWS_URL: http://minio:9090/ikp
-        AWS_ENDPOINT: http://minio:9090
+    image: ikp:v1.0.2
+    pull_policy: missing
     container_name: ikp-app
     working_dir: /var/www/ikp
     env_file:
       - ./env/.env.ikp
     environment:
-      APP_ENV: production
+      APP_ENV: local
+      APP_DEBUG: "true"
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
       APP_URL: "http://192.168.1.9:8200"
@@ -225,6 +212,10 @@ services:
       AWS_BUCKET: ikp
       AWS_URL: http://minio:9090/ikp
       AWS_ENDPOINT: http://minio:9090
+      # DEPARTEMENTS SYNC SETUP 
+      MANAGE_UNIT_KERJA_APP_CENTER_URL: "http://web:8100"
+      MANAGE_UNIT_KERJA_APP_ENV: local
+      MANAGE_UNIT_KERJA_CENTER_APPLICATION: true
       # SSO Configuration - Override from compose
       USE_SSO: "true"
       IAM_ENABLED: "true"
@@ -243,6 +234,10 @@ services:
       - ikp_storage:/var/www/ikp/storage
       - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
       - ikp_public:/var/www/ikp/public
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_ADMIN
     restart: unless-stopped
     deploy:
       resources:
@@ -260,22 +255,8 @@ services:
       start_period: 60s
 
   queue-ikp:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.ikp-registry
-      args:
-        APP_DIR: ikp
-        APP_NAME: "IKP Application"
-        APP_ENV: production
-        DB_HOST: database-service
-        DB_USERNAME: ikp_user
-        DB_PASSWORD: ikp-password
-        DB_DATABASE: ikp_db
-        AWS_ACCESS_KEY_ID: admin
-        AWS_SECRET_ACCESS_KEY: password
-        AWS_BUCKET: ikp
-        AWS_URL: http://minio:9090/ikp
-        AWS_ENDPOINT: http://minio:9090
+    image: ikp:v1.0.2
+    pull_policy: missing
     container_name: ikp-queue
     working_dir: /var/www/ikp
     env_file:
@@ -307,22 +288,8 @@ services:
           cpus: "0.25"
 
   scheduler-ikp:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.ikp-registry
-      args:
-        APP_DIR: ikp
-        APP_NAME: "IKP Application"
-        APP_ENV: production
-        DB_HOST: database-service
-        DB_USERNAME: ikp_user
-        DB_PASSWORD: ikp-password
-        DB_DATABASE: ikp_db
-        AWS_ACCESS_KEY_ID: admin
-        AWS_SECRET_ACCESS_KEY: password
-        AWS_BUCKET: ikp
-        AWS_URL: http://minio:9090/ikp
-        AWS_ENDPOINT: http://minio:9090
+    image: ikp:v1.0.2
+    pull_policy: missing
     container_name: ikp-scheduler
     working_dir: /var/www/ikp
     env_file:
@@ -353,13 +320,8 @@ services:
   # Apps IAM
   ####################################################################################################
   app-iam:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.iam-registry
-      args:
-        APP_DIR: iam-server
-        APP_NAME: "IAM Server"
-        APP_ENV: production
+    image: juniyasyos/iam-server:v2.0.1
+    pull_policy: missing
     container_name: iam-app
     env_file:
       - ./env/.env.iam
@@ -399,13 +361,8 @@ services:
           - iam-app
 
   queue-iam:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.iam-registry
-      args:
-        APP_DIR: iam-server
-        APP_NAME: "IAM Server"
-        APP_ENV: production
+    image: juniyasyos/iam-server:v2.0.1
+    pull_policy: missing
     container_name: iam-queue
     working_dir: /var/www/iam
     env_file:
@@ -445,13 +402,8 @@ services:
       start_period: 60s
 
   scheduler-iam:
-    build:
-      context: .
-      dockerfile: DockerNew/php/Dockerfile.iam-registry
-      args:
-        APP_DIR: iam-server
-        APP_NAME: "IAM Server"
-        APP_ENV: production
+    image: juniyasyos/iam-server:v2.0.1
+    pull_policy: missing
     container_name: iam-scheduler
     working_dir: /var/www/iam
     env_file:

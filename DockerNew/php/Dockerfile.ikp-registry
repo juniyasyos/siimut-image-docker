@@ -10,31 +10,25 @@ ARG TZ=Asia/Jakarta
 ARG APP_NAME="IKP Application"
 
 # Sistem & build deps
-RUN apk add \
-      tzdata bash shadow ca-certificates unzip su-exec \
+RUN apk add --no-cache --virtual .build-deps \
+      $PHPIZE_DEPS \
       icu-dev oniguruma-dev libzip-dev zlib-dev \
       libpng-dev libjpeg-turbo-dev freetype-dev \
-      libxml2-dev postgresql-dev \
-      linux-headers curl openssl git vim \
-      $PHPIZE_DEPS \
-  && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
-  && echo "${TZ}" > /etc/timezone \
-  # PHP extensions
-  && docker-php-ext-configure intl \
-  && docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j"$(nproc)" \
+      libxml2-dev postgresql-dev linux-headers \
+    && apk add --no-cache \
+      tzdata ca-certificates unzip curl openssl su-exec nodejs npm chromium \
+      icu-libs libzip libpng libjpeg-turbo freetype postgresql-libs \
+    && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
+    && echo "${TZ}" > /etc/timezone \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
        intl mbstring pdo pdo_mysql pdo_pgsql pgsql zip gd \
        bcmath exif pcntl sockets opcache \
-  # igbinary
-  && pecl install igbinary \
-  && docker-php-ext-enable igbinary \
-  # APCu (optional)
-  && (pecl install apcu && docker-php-ext-enable --ini-name 0-apc.ini apcu) || echo "APCu not available, skipping" \
-  # Cleanup
-  && apk del --no-network $PHPIZE_DEPS linux-headers \
-  && rm -rf /var/cache/apk/* /tmp/*
-
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+    && pecl install igbinary \
+    && docker-php-ext-enable igbinary \
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/* /tmp/*
 
 # User non-root
 RUN addgroup -g "${GID}" www \
@@ -45,103 +39,45 @@ RUN addgroup -g "${GID}" www \
 ENV APP_NAME=${APP_NAME}
 
 # =========================
-# Stage 2: Dependencies
+# Stage 2: Builder
 # =========================
-FROM base AS deps
+FROM base AS builder
 
 ARG APP_DIR=ikp
-
 ENV COMPOSER_CACHE_DIR=/tmp/composer-cache \
-    COMPOSER_MEMORY_LIMIT=-1
+    COMPOSER_MEMORY_LIMIT=-1 \
+    COMPOSER_NO_INTERACTION=1
 
 WORKDIR /build
 
-# Copy composer.json first for better layer caching
-COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* /tmp/composer-files/
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Pre-install dependencies (this layer can be cached if composer files don't change)
+COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* ./
 RUN set -eux; \
-    mkdir -p /app; \
-    if [ -f /tmp/composer-files/composer.json ]; then \
-      echo ">> Pre-installing composer dependencies..."; \
-      cd /tmp/composer-files; \
-      composer install \
-        --no-interaction \
-        --no-scripts \
-        --no-autoloader; \
-      cp -r vendor/ /app/; \
-    fi; \
-    rm -rf /tmp/composer-files
+    composer install \
+      --no-dev \
+      --prefer-dist \
+      --no-interaction \
+      --no-progress \
+      --classmap-authoritative \
+      --no-scripts; \
+    rm -rf "$COMPOSER_CACHE_DIR"
 
-# Add build timestamp to force cache invalidation
-ARG BUILD_TIMESTAMP
-RUN echo "Build timestamp: ${BUILD_TIMESTAMP}" > /tmp/build.info
+COPY site/${APP_DIR}/package.json site/${APP_DIR}/package-lock.json ./
+RUN if [ -f package.json ]; then \
+      npm ci --ignore-scripts --no-progress; \
+    fi
 
-# Copy entire source code (this layer will always be rebuilt due to timestamp)
-COPY . .
-
-# Extract and finalize app from monorepo structure  
+COPY site/${APP_DIR}/ .
 RUN set -eux; \
-    echo ">> Building IKP application from APP_DIR='${APP_DIR}'"; \
-    echo ">> Build info: $(cat /tmp/build.info)"; \
-    \
-    # Save vendor directory (already pre-installed)
-    if [ -d "/app/vendor" ]; then \
-      echo ">> Saving pre-installed vendor..."; \
-      mv /app/vendor /tmp/vendor-backup; \
+    if [ -f package.json ]; then \
+      npm run build; \
     fi; \
-    \
-    if [ -d "site/${APP_DIR}" ]; then \
-      echo ">> Using app from site/${APP_DIR}"; \
-      cp -r "site/${APP_DIR}/." "/app/"; \
-      # Show recent changes to verify source is up to date
-      echo ">> Recent changes in site/${APP_DIR}:"; \
-      find "site/${APP_DIR}" -type f -newer /tmp/build.info -ls 2>/dev/null | head -10 || true; \
-    elif [ -d "${APP_DIR}" ]; then \
-      echo ">> Using app from ${APP_DIR}"; \
-      cp -r "${APP_DIR}/." "/app/"; \
-    else \
-      echo ">> Using app from repository root"; \
-      cp -r . "/app/"; \
+    composer dump-autoload --optimize --classmap-authoritative --no-scripts || true; \
+    if [ -f .env ]; then \
+      php artisan optimize || true; \
     fi; \
-    \
-    # Restore vendor directory
-    if [ -d "/tmp/vendor-backup" ]; then \
-      echo ">> Restoring pre-installed vendor..."; \
-      if [ -d "/app/vendor" ]; then \
-        rm -rf /app/vendor; \
-      fi; \
-      mv /tmp/vendor-backup /app/vendor; \
-      echo ">> Vendor restored ($(du -sh /app/vendor | awk '{print $1}'))"; \
-    fi; \
-    \
-    cd /app; \
-    \
-    # Finalize composer setup
-    if [ -f composer.json ]; then \
-      echo ">> Finalizing composer setup..."; \
-      composer dump-autoload --optimize --classmap-authoritative --no-scripts; \
-      echo ">> Running artisan optimize..."; \
-      php artisan optimize || echo ">> artisan optimize skipped (no .env / APP_KEY not set)"; \
-    else \
-      echo ">> No composer.json found"; \
-    fi; \
-    \
-    # Verify vendor/livewire exists
-    if [ -d "/app/vendor/livewire" ]; then \
-      echo "✅ Livewire found at /app/vendor/livewire"; \
-    else \
-      echo "⚠️ WARNING: Livewire not found in vendor directory!"; \
-      echo "Available packages: $(ls -1 /app/vendor | wc -l) directories"; \
-    fi; \
-    \
-    # Show app structure to verify
-    echo ">> App structure:"; \
-    ls -la /app/ | head -10; \
-    echo ">> App size: $(du -sh /app/)"; \
-    \
-    # Cleanup
-    rm -rf "$COMPOSER_CACHE_DIR" /tmp/* /build
+    rm -rf /tmp/* /root/.npm /root/.cache
 
 # =========================
 
@@ -233,8 +169,8 @@ RUN set -eux; \
   sed -ri 's|^;?pm\.max_requests =.*|pm.max_requests =  1000|' /usr/local/etc/php-fpm.d/www.conf; \
   sed -ri 's|^;?clear_env =.*|clear_env = no|' /usr/local/etc/php-fpm.d/www.conf
 
-# Copy app from deps stage
-COPY --from=deps --chown=www:www /app ${APP_WORKDIR}
+# Copy app from builder stage
+COPY --from=builder --chown=www:www /build ${APP_WORKDIR}
 
 # Permissions & directory setup
 RUN set -eux; \

@@ -145,11 +145,19 @@ else
 fi
 
 # Wait for database
-echo "⏳ Waiting for database..."
-php -r '
+DB_WAIT_TIMEOUT="${DB_WAIT_TIMEOUT:-60}"
+DB_WAIT_INTERVAL="${DB_WAIT_INTERVAL:-2}"
+
+if [ "${SKIP_DB_WAIT}" = "true" ]; then
+    echo "ℹ️  SKIP_DB_WAIT=true, skipping database wait"
+else
+    echo "⏳ Waiting for database... timeout=${DB_WAIT_TIMEOUT}s"
+    php -r '
 $host    = getenv("DB_HOST") ?: "database-service";
 $port    = getenv("DB_PORT") ?: 3306;
-$timeout = 60;
+$timeout = getenv("DB_WAIT_TIMEOUT") ? intval(getenv("DB_WAIT_TIMEOUT")) : 60;
+$interval = getenv("DB_WAIT_INTERVAL") ? intval(getenv("DB_WAIT_INTERVAL")) : 2;
+$interval = $interval > 0 ? $interval : 2;
 $start   = time();
 
 while (true) {
@@ -164,44 +172,52 @@ while (true) {
         exit(1);
     }
     fwrite(STDOUT, "… waiting for DB {$host}:{$port}\n");
-    sleep(2);
+    sleep($interval);
 }
 '
+fi
 
 # ------------------------------------------------------------------
 # Wait for MinIO (S3 endpoint) to be available
 # ------------------------------------------------------------------
-echo "⏳ Waiting for MinIO service at ${AWS_ENDPOINT:-<unset>}"
+MINIO_WAIT_TIMEOUT="${MINIO_WAIT_TIMEOUT:-60}"
+MINIO_WAIT_INTERVAL="${MINIO_WAIT_INTERVAL:-2}"
 
-# extract host and port; default port 80 if missing
-minio_host=$(echo "${AWS_ENDPOINT}" | sed -E 's~https?://~~' | cut -d':' -f1)
-minio_port=$(echo "${AWS_ENDPOINT}" | awk -F: '{print $NF}')
-if [ -z "$minio_port" ] || [ "$minio_port" = "$minio_host" ]; then
-    minio_port=80
-fi
-
-echo "🔍 Resolving host '$minio_host'..."
-if getent hosts "$minio_host" >/dev/null 2>&1; then
-    echo "✅ DNS lookup OK"
+if [ "${SKIP_MINIO_WAIT}" = "true" ]; then
+    echo "ℹ️  SKIP_MINIO_WAIT=true, skipping MinIO wait"
+elif [ -z "${AWS_ENDPOINT}" ]; then
+    echo "ℹ️  AWS_ENDPOINT is unset, skipping MinIO wait"
 else
-    echo "⚠️  DNS lookup failed for $minio_host"
+    echo "⏳ Waiting for MinIO service at ${AWS_ENDPOINT}"
+
+    # extract host and port; default port 80 if missing
+    minio_host=$(echo "${AWS_ENDPOINT}" | sed -E 's~https?://~~' | cut -d':' -f1)
+    minio_port=$(echo "${AWS_ENDPOINT}" | awk -F: '{print $NF}')
+    if [ -z "$minio_port" ] || [ "$minio_port" = "$minio_host" ]; then
+        minio_port=80
+    fi
+
+    echo "🔍 Resolving host '$minio_host'..."
+    if getent hosts "$minio_host" >/dev/null 2>&1; then
+        echo "✅ DNS lookup OK"
+    else
+        echo "⚠️  DNS lookup failed for $minio_host"
+    fi
+
+    start=$(date +%s)
+    while true; do
+        if curl -fsS --max-time 2 "${AWS_ENDPOINT}" >/dev/null 2>&1; then
+            echo "✅ MinIO reachable at $minio_host:$minio_port"
+            break
+        fi
+        if [ $(( $(date +%s) - start )) -gt $MINIO_WAIT_TIMEOUT ]; then
+            echo "❌ Timeout waiting for MinIO ($MINIO_WAIT_TIMEOUT s)"
+            break
+        fi
+        echo "… waiting for MinIO $minio_host:$minio_port"
+        sleep $MINIO_WAIT_INTERVAL
+    done
 fi
-
-start=$(date +%s)
-timeout=60
-while true; do
-    if curl -fsS --max-time 2 "${AWS_ENDPOINT}" >/dev/null 2>&1; then
-        echo "✅ MinIO reachable at $minio_host:$minio_port"
-        break
-    fi
-    if [ $(( $(date +%s) - start )) -gt $timeout ]; then
-        echo "❌ Timeout waiting for MinIO ($timeout s)"
-        break
-    fi
-    echo "… waiting for MinIO $minio_host:$minio_port"
-    sleep 2
-done
-
 
 # Fix permissions BEFORE cache warming (penting!)
 echo "🔧 Setting up permissions..."

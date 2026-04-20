@@ -1,19 +1,20 @@
 #!/bin/bash
 
 ####################################################################################################
-# SIIMUT Build & Push to Docker Hub Script
+# Multi-App Build & Push to Docker Hub Script
 # 
-# Purpose: Build SIIMUT image, tag it, and push to Docker Hub
+# Purpose: Build SIIMUT, IKP, and IAM Server images, tag them, and push to Docker Hub
 # Usage:
-#   ./build.sh              # Build only, tag as latest
-#   ./build.sh push         # Build and push to Docker Hub
-#   ./build.sh tag          # Build and tag (no push)
+#   ./build.sh                   # Build SIIMUT only
+#   ./build.sh push              # Build SIIMUT and push
+#   ./build.sh ikp push          # Build IKP and push
+#   ./build.sh iam push          # Build IAM Server and push
+#   ./build.sh all push          # Build all apps and push
 #   VERSION=v1.0.0 ./build.sh push  # Build specific version
 #
 # Configuration:
 #   - DOCKER_HUB_USER: Set in environment or defaults to 'juni'
 #   - VERSION: Read from ./VERSION file or environment variable
-#   - IMAGE_NAME: 'siimut' (hardcoded)
 ####################################################################################################
 
 set -e
@@ -21,10 +22,32 @@ set -e
 # ============================================
 # Configuration
 # ============================================
-DOCKER_HUB_USER="${DOCKER_HUB_USER:-juni}"
-IMAGE_NAME="siimut"
+DOCKER_HUB_USER="${DOCKER_HUB_USER:-}"
 COMPOSE_FILE="docker-compose-build.yml"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Detect Docker Hub username if not explicitly provided
+if [ -z "$DOCKER_HUB_USER" ] && [ -f "$HOME/.docker/config.json" ]; then
+    DOCKER_HUB_USER=$(python3 - <<'PY'
+import json, os, base64
+path = os.path.expanduser('~/.docker/config.json')
+try:
+    cfg = json.load(open(path))
+    auths = cfg.get('auths', {})
+    for registry, data in auths.items():
+        auth = data.get('auth')
+        if auth:
+            decoded = base64.b64decode(auth).decode('utf-8', errors='ignore')
+            if ':' in decoded:
+                print(decoded.split(':', 1)[0])
+                break
+except Exception:
+    pass
+PY
+)
+fi
+
+DOCKER_HUB_USER="${DOCKER_HUB_USER:-juniyasyos}"
 
 # Read version: ENV VAR > VERSION file > 'latest'
 if [ -z "$VERSION" ]; then
@@ -35,13 +58,60 @@ if [ -z "$VERSION" ]; then
     fi
 fi
 
-# Full image references
-LOCAL_IMAGE="$IMAGE_NAME:latest"
-DOCKER_HUB_IMAGE_VERSIONED="$DOCKER_HUB_USER/$IMAGE_NAME:$VERSION"
-DOCKER_HUB_IMAGE_LATEST="$DOCKER_HUB_USER/$IMAGE_NAME:latest"
+normalize_target() {
+    case "$1" in
+        siimut) echo "siimut" ;;
+        ikp) echo "ikp" ;;
+        iam|iam-server|iamserver) echo "iam-server" ;;
+        all) echo "all" ;;
+        build|tag|push|help|--help|-h) echo "siimut" ;;
+        "") echo "siimut" ;;
+        *) echo "" ;;
+    esac
+}
 
-# Command: build, tag, push, or all
-COMMAND="${1:-build}"
+ACTION="${1:-}"
+if [[ "$ACTION" =~ ^(build|tag|push|help|--help|-h)$ ]]; then
+    TARGET="siimut"
+    COMMAND="$ACTION"
+elif [ -z "${2:-}" ]; then
+    TARGET="$ACTION"
+    COMMAND="build"
+else
+    TARGET="$ACTION"
+    COMMAND="$2"
+fi
+
+TARGET="$(normalize_target "$TARGET")"
+if [ -z "$TARGET" ]; then
+    echo ""
+    log_error "Unknown app target: ${1:-<none>}"
+    echo ""
+    show_help
+    exit 1
+fi
+
+if [ "$TARGET" = "all" ]; then
+    SELECTED_SERVICES=(siimut ikp iam-server)
+else
+    SELECTED_SERVICES=($TARGET)
+fi
+
+# ============================================
+# Helpers
+# ============================================
+
+service_image() {
+    echo "$1:$VERSION"
+}
+
+docker_hub_image_versioned() {
+    echo "$DOCKER_HUB_USER/$1:$VERSION"
+}
+
+docker_hub_image_latest() {
+    echo "$DOCKER_HUB_USER/$1:latest"
+}
 
 # ============================================
 # Colors for output
@@ -75,14 +145,12 @@ log_error() {
 print_config() {
     echo ""
     echo "╔════════════════════════════════════════════╗"
-    echo "║  SIIMUT Build Configuration               ║"
+    echo "║  Docker Build Configuration                ║"
     echo "╠════════════════════════════════════════════╣"
     echo "║  Docker Hub User:  $DOCKER_HUB_USER"
-    echo "║  Image Name:       $IMAGE_NAME"
+    echo "║  Target App:       $TARGET"
+    echo "║  Selected Apps:    ${SELECTED_SERVICES[*]}"
     echo "║  Version:          $VERSION"
-    echo "║  Local Image:      $LOCAL_IMAGE"
-    echo "║  Docker Hub Image: $DOCKER_HUB_IMAGE_VERSIONED"
-    echo "║  Latest Tag:       $DOCKER_HUB_IMAGE_LATEST"
     echo "║  Compose File:     $COMPOSE_FILE"
     echo "║  Command:          $COMMAND"
     echo "╚════════════════════════════════════════════╝"
@@ -90,108 +158,138 @@ print_config() {
 }
 
 build_image() {
-    log_info "Building $LOCAL_IMAGE from $COMPOSE_FILE..."
-    
-    if docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build; then
-        log_success "Build completed successfully"
-        return 0
+    log_info "Building ${SELECTED_SERVICES[*]} from $COMPOSE_FILE..."
+
+    if [ "$TARGET" = "all" ]; then
+        if docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build; then
+            log_success "Build completed successfully"
+            return 0
+        fi
     else
-        log_error "Build failed"
-        return 1
+        if docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build "${SELECTED_SERVICES[@]}"; then
+            log_success "Build completed successfully"
+            return 0
+        fi
     fi
+
+    log_error "Build failed"
+    return 1
 }
 
 tag_image() {
-    log_info "Tagging image..."
-    
-    if docker tag "$LOCAL_IMAGE" "$DOCKER_HUB_IMAGE_VERSIONED"; then
-        log_success "Tagged: $LOCAL_IMAGE → $DOCKER_HUB_IMAGE_VERSIONED"
-    else
-        log_error "Failed to tag image with version"
-        return 1
-    fi
-    
-    if docker tag "$LOCAL_IMAGE" "$DOCKER_HUB_IMAGE_LATEST"; then
-        log_success "Tagged: $LOCAL_IMAGE → $DOCKER_HUB_IMAGE_LATEST"
-    else
-        log_error "Failed to tag image as latest"
-        return 1
-    fi
-    
+    log_info "Tagging images..."
+
+    for svc in "${SELECTED_SERVICES[@]}"; do
+        LOCAL_IMAGE="$(service_image "$svc")"
+        DOCKER_HUB_IMAGE_VERSIONED="$(docker_hub_image_versioned "$svc")"
+        DOCKER_HUB_IMAGE_LATEST="$(docker_hub_image_latest "$svc")"
+
+        if docker tag "$LOCAL_IMAGE" "$DOCKER_HUB_IMAGE_VERSIONED"; then
+            log_success "Tagged: $LOCAL_IMAGE → $DOCKER_HUB_IMAGE_VERSIONED"
+        else
+            log_error "Failed to tag image with version: $LOCAL_IMAGE"
+            return 1
+        fi
+
+        if docker tag "$LOCAL_IMAGE" "$DOCKER_HUB_IMAGE_LATEST"; then
+            log_success "Tagged: $LOCAL_IMAGE → $DOCKER_HUB_IMAGE_LATEST"
+        else
+            log_error "Failed to tag image as latest: $LOCAL_IMAGE"
+            return 1
+        fi
+    done
+
     return 0
 }
 
 verify_docker_login() {
     log_info "Verifying Docker Hub authentication..."
-    
-    if ! docker info | grep -q "Username:"; then
-        log_warn "Not logged in to Docker Hub"
-        log_info "Please login first:"
-        log_info "  docker login"
-        return 1
+
+    if docker info 2>/dev/null | grep -q "Username:"; then
+        log_success "Docker Hub authentication verified"
+        return 0
     fi
-    
-    log_success "Docker Hub authentication verified"
-    return 0
+
+    if [ -f "$HOME/.docker/config.json" ] && grep -q '"https://index.docker.io/v1/"' "$HOME/.docker/config.json"; then
+        log_success "Docker Hub authentication verified via config file"
+        return 0
+    fi
+
+    log_warn "Not logged in to Docker Hub"
+    log_info "Please login first:"
+    log_info "  docker login"
+    return 1
 }
 
 push_image() {
     log_info "Pushing images to Docker Hub..."
-    
+
     if ! verify_docker_login; then
         log_error "Cannot push without Docker Hub login"
         return 1
     fi
-    
-    # Push versioned tag
-    if docker push "$DOCKER_HUB_IMAGE_VERSIONED"; then
-        log_success "Pushed: $DOCKER_HUB_IMAGE_VERSIONED"
-    else
-        log_error "Failed to push $DOCKER_HUB_IMAGE_VERSIONED"
-        return 1
-    fi
-    
-    # Push latest tag
-    if docker push "$DOCKER_HUB_IMAGE_LATEST"; then
-        log_success "Pushed: $DOCKER_HUB_IMAGE_LATEST"
-    else
-        log_error "Failed to push $DOCKER_HUB_IMAGE_LATEST"
-        return 1
-    fi
-    
+
+    for svc in "${SELECTED_SERVICES[@]}"; do
+        IMAGE_VERSIONED="$(docker_hub_image_versioned "$svc")"
+        IMAGE_LATEST="$(docker_hub_image_latest "$svc")"
+
+        if docker push "$IMAGE_VERSIONED"; then
+            log_success "Pushed: $IMAGE_VERSIONED"
+        else
+            log_error "Failed to push $IMAGE_VERSIONED"
+            return 1
+        fi
+
+        if docker push "$IMAGE_LATEST"; then
+            log_success "Pushed: $IMAGE_LATEST"
+        else
+            log_error "Failed to push $IMAGE_LATEST"
+            return 1
+        fi
+    done
+
     return 0
 }
 
 show_help() {
     cat << EOF
 ╔════════════════════════════════════════════════════════════════╗
-║            SIIMUT Build & Docker Hub Push Tool                ║
+║         Build & Docker Hub Push Tool for Applications          ║
 ╚════════════════════════════════════════════════════════════════╝
 
 USAGE:
-    ./build.sh [COMMAND]
+    ./build.sh [APP] [COMMAND]
+
+APPS:
+    siimut               Build SIIMUT image (default)
+    ikp                  Build IKP image
+    iam                  Build IAM Server image
+    all                  Build all images
 
 COMMANDS:
-    build                  Build image only (default)
-    tag                    Build and tag for Docker Hub
-    push                   Build, tag, and push to Docker Hub
-    help                   Show this help message
+    build                Build image only (default)
+    tag                  Build and tag for Docker Hub
+    push                 Build, tag, and push to Docker Hub
+    help                 Show this help message
 
 EXAMPLES:
-    # Build image locally
+    # Build SIIMUT image only
     ./build.sh
 
-    # Build and tag
-    ./build.sh tag
+    # Build and push SIIMUT image
+    DOCKER_HUB_USER=juniyasyos VERSION=v1.0.1 ./build.sh push
 
-    # Build, tag, and push to Docker Hub
-    ./build.sh push
+    # Build and push IKP image
+    DOCKER_HUB_USER=juniyasyos VERSION=v1.0.1 ./build.sh ikp push
 
-    # Build specific version
-    VERSION=v1.0.1 ./build.sh push
+    # Build and push IAM Server image
+    DOCKER_HUB_USER=juniyasyos VERSION=v1.0.1 ./build.sh iam push
+
+    # Build all 3 images and push
+    DOCKER_HUB_USER=juniyasyos VERSION=v1.0.1 ./build.sh all push
 
 ENVIRONMENT VARIABLES:
-    DOCKER_HUB_USER        Docker Hub username (default: juni)
+    DOCKER_HUB_USER        Docker Hub username (default: detected from Docker login, or 'juni' if unknown)
     VERSION                Image version (default: read from VERSION file)
 
 CONFIGURATION FILES:
@@ -203,9 +301,9 @@ NOTES:
     - Requires Docker daemon running
     - For push: requires 'docker login' to be successful
     - Images are tagged as:
-        * Local: siimut:latest
-        * Docker Hub: juni/siimut:VERSION
-        * Docker Hub: juni/siimut:latest
+        * Local: <app>:VERSION
+        * Docker Hub: DOCKER_HUB_USER/<app>:VERSION
+        * Docker Hub: DOCKER_HUB_USER/<app>:latest
 
 ╔════════════════════════════════════════════════════════════════╗
 EOF

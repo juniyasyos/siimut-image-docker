@@ -16,7 +16,7 @@ RUN apk add --no-cache --virtual .build-deps \
       libpng-dev libjpeg-turbo-dev freetype-dev \
       libxml2-dev postgresql-dev linux-headers \
     && apk add --no-cache \
-      tzdata ca-certificates unzip curl openssl su-exec nodejs npm chromium \
+      tzdata ca-certificates unzip curl openssl su-exec \
       icu-libs libzip libpng libjpeg-turbo freetype postgresql-libs \
     && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
@@ -63,21 +63,13 @@ RUN set -eux; \
       --no-scripts; \
     rm -rf "$COMPOSER_CACHE_DIR"
 
-COPY site/${APP_DIR}/package.json site/${APP_DIR}/package-lock.json ./
-RUN if [ -f package.json ]; then \
-      npm ci --ignore-scripts --no-progress; \
-    fi
-
 COPY site/${APP_DIR}/ .
 RUN set -eux; \
-    if [ -f package.json ]; then \
-      npm run build; \
-    fi; \
     composer dump-autoload --optimize --classmap-authoritative --no-scripts || true; \
     if [ -f .env ]; then \
       php artisan optimize || true; \
     fi; \
-    rm -rf /tmp/* /root/.npm /root/.cache
+    rm -rf /tmp/*
 
 # =========================
 

@@ -189,7 +189,7 @@ services:
   # Apps IKP (New Application)
   ####################################################################################################
   app-ikp:
-    image: ikp:v1.0.2
+    image: ikp:v1.0.3
     pull_policy: missing
     container_name: ikp-app
     working_dir: /var/www/ikp
@@ -255,7 +255,7 @@ services:
       start_period: 60s
 
   queue-ikp:
-    image: ikp:v1.0.2
+    image: ikp:v1.0.3
     pull_policy: missing
     container_name: ikp-queue
     working_dir: /var/www/ikp
@@ -288,7 +288,7 @@ services:
           cpus: "0.25"
 
   scheduler-ikp:
-    image: ikp:v1.0.2
+    image: ikp:v1.0.3
     pull_policy: missing
     container_name: ikp-scheduler
     working_dir: /var/www/ikp

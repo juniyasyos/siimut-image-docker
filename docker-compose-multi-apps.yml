@@ -59,7 +59,7 @@ services:
   # Pulled from Docker Hub: juniyasyos/siimut:VERSION
   ####################################################################################################
   app-siimut:
-    image: juniyasyos/siimut:v3.0.0
+    image: siimut:v3.0.1
     pull_policy: missing
     container_name: siimut-app
     working_dir: /var/www/siimut
@@ -69,7 +69,7 @@ services:
       APP_ENV: production
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.9:8000"
+      APP_URL: "http://127.0.0.1:8000"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
@@ -85,9 +85,9 @@ services:
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.9:8100"
-      IAM_BASE_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      IAM_HOST: "http://127.0.0.1:8100"
+      IAM_BASE_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
       # Internal container verification & API calls use Docker network service name
       IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
       IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
@@ -118,7 +118,7 @@ services:
       start_period: 60s
 
   queue-siimut:
-    image: juniyasyos/siimut:v3.0.0
+    image: siimut:v3.0.1
     pull_policy: missing
     container_name: siimut-queue
     working_dir: /var/www/siimut
@@ -154,7 +154,7 @@ services:
       start_period: 60s
 
   scheduler-siimut:
-    image: juniyasyos/siimut:v3.0.0
+    image: siimut:v3.0.1
     pull_policy: missing
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
@@ -189,7 +189,7 @@ services:
   # Apps IKP (New Application)
   ####################################################################################################
   app-ikp:
-    image: ikp:v1.0.3
+    image: ikp:v1.2.0
     pull_policy: missing
     container_name: ikp-app
     working_dir: /var/www/ikp
@@ -200,7 +200,7 @@ services:
       APP_DEBUG: "true"
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
-      APP_URL: "http://192.168.1.9:8200"
+      APP_URL: "http://127.0.0.1:8200"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: ikp_user
@@ -220,9 +220,9 @@ services:
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.9:8100"
-      IAM_BASE_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      IAM_HOST: "http://127.0.0.1:8100"
+      IAM_BASE_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
       # Internal container verification & API calls use Docker network service name
       IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
       IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
@@ -255,7 +255,7 @@ services:
       start_period: 60s
 
   queue-ikp:
-    image: ikp:v1.0.3
+    image: ikp:v1.2.0
     pull_policy: missing
     container_name: ikp-queue
     working_dir: /var/www/ikp
@@ -288,7 +288,7 @@ services:
           cpus: "0.25"
 
   scheduler-ikp:
-    image: ikp:v1.0.3
+    image: ikp:v1.2.0
     pull_policy: missing
     container_name: ikp-scheduler
     working_dir: /var/www/ikp
@@ -320,7 +320,7 @@ services:
   # Apps IAM
   ####################################################################################################
   app-iam:
-    image: juniyasyos/iam-server:v2.0.1
+    image: iam-server:v2.0.1
     pull_policy: missing
     container_name: iam-app
     env_file:
@@ -333,8 +333,8 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage
@@ -361,7 +361,7 @@ services:
           - iam-app
 
   queue-iam:
-    image: juniyasyos/iam-server:v2.0.1
+    image: iam-server:v2.0.1
     pull_policy: missing
     container_name: iam-queue
     working_dir: /var/www/iam
@@ -369,8 +369,8 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
@@ -402,7 +402,7 @@ services:
       start_period: 60s
 
   scheduler-iam:
-    image: juniyasyos/iam-server:v2.0.1
+    image: iam-server:v2.0.1
     pull_policy: missing
     container_name: iam-scheduler
     working_dir: /var/www/iam
@@ -410,8 +410,8 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://127.0.0.1:8100"
+      IAM_ISSUER: "http://127.0.0.1:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password

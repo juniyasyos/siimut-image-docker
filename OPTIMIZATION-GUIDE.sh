@@ -85,8 +85,8 @@ docker-compose -f docker-compose-multi-apps.yml logs -f scheduler-siimut
 docker-compose -f docker-compose-multi-apps.yml logs -f web
 
 # Test app health
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/api/
+curl http://192.168.1.9:8000/health
+curl http://192.168.1.9:8000/api/
 
 # ============================================
 # IMAGE MANAGEMENT

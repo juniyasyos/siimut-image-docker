@@ -58,6 +58,14 @@ if [ -z "$VERSION" ]; then
     fi
 fi
 
+# Per-service version overrides can be set with environment variables.
+SIIMUT_VERSION="v3.1.0"
+IKP_VERSION="v1.3.0"
+IAM_VERSION="v2.1.0"
+# SIIMUT_VERSION="${SIIMUT_VERSION:-$VERSION}"
+# IKP_VERSION="${IKP_VERSION:-$VERSION}"
+# IAM_VERSION="${IAM_VERSION:-$VERSION}"
+
 normalize_target() {
     case "$1" in
         siimut) echo "siimut" ;;
@@ -101,12 +109,29 @@ fi
 # Helpers
 # ============================================
 
+service_version() {
+    case "$1" in
+        siimut)
+            echo "$SIIMUT_VERSION"
+            ;;
+        ikp)
+            echo "$IKP_VERSION"
+            ;;
+        iam-server)
+            echo "$IAM_VERSION"
+            ;;
+        *)
+            echo "$VERSION"
+            ;;
+    esac
+}
+
 service_image() {
-    echo "$1:$VERSION"
+    echo "$1:$(service_version "$1")"
 }
 
 docker_hub_image_versioned() {
-    echo "$DOCKER_HUB_USER/$1:$VERSION"
+    echo "$DOCKER_HUB_USER/$1:$(service_version "$1")"
 }
 
 docker_hub_image_latest() {
@@ -150,7 +175,10 @@ print_config() {
     echo "║  Docker Hub User:  $DOCKER_HUB_USER"
     echo "║  Target App:       $TARGET"
     echo "║  Selected Apps:    ${SELECTED_SERVICES[*]}"
-    echo "║  Version:          $VERSION"
+    echo "║  Default Version:  $VERSION"
+    echo "║  SIIMUT Version:   $SIIMUT_VERSION"
+    echo "║  IKP Version:      $IKP_VERSION"
+    echo "║  IAM Version:      $IAM_VERSION"
     echo "║  Compose File:     $COMPOSE_FILE"
     echo "║  Command:          $COMMAND"
     echo "╚════════════════════════════════════════════╝"
@@ -161,12 +189,14 @@ build_image() {
     log_info "Building ${SELECTED_SERVICES[*]} from $COMPOSE_FILE..."
 
     if [ "$TARGET" = "all" ]; then
-        if docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build; then
+        if SIIMUT_VERSION="$SIIMUT_VERSION" IKP_VERSION="$IKP_VERSION" IAM_VERSION="$IAM_VERSION" \
+            docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build; then
             log_success "Build completed successfully"
             return 0
         fi
     else
-        if docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build "${SELECTED_SERVICES[@]}"; then
+        if SIIMUT_VERSION="$SIIMUT_VERSION" IKP_VERSION="$IKP_VERSION" IAM_VERSION="$IAM_VERSION" \
+            docker compose -f "$SCRIPT_DIR/$COMPOSE_FILE" build "${SELECTED_SERVICES[@]}"; then
             log_success "Build completed successfully"
             return 0
         fi
@@ -285,12 +315,15 @@ EXAMPLES:
     # Build and push IAM Server image
     DOCKER_HUB_USER=juniyasyos VERSION=v1.0.1 ./build.sh iam push
 
-    # Build all 3 images and push
-    DOCKER_HUB_USER=juniyasyos VERSION=v1.0.1 ./build.sh all push
+    # Build all 3 images with separate versions and push
+    SIIMUT_VERSION=v3.1.0 IKP_VERSION=v1.3.0 IAM_VERSION=v2.1.0 DOCKER_HUB_USER=juniyasyos ./build.sh all push
 
 ENVIRONMENT VARIABLES:
     DOCKER_HUB_USER        Docker Hub username (default: detected from Docker login, or 'juni' if unknown)
-    VERSION                Image version (default: read from VERSION file)
+    VERSION                Default image version (default: read from VERSION file)
+    SIIMUT_VERSION         Optional per-service version for SIIMUT
+    IKP_VERSION            Optional per-service version for IKP
+    IAM_VERSION            Optional per-service version for IAM Server
 
 CONFIGURATION FILES:
     VERSION                Contains version string (e.g., v1.0.0)
@@ -301,8 +334,8 @@ NOTES:
     - Requires Docker daemon running
     - For push: requires 'docker login' to be successful
     - Images are tagged as:
-        * Local: <app>:VERSION
-        * Docker Hub: DOCKER_HUB_USER/<app>:VERSION
+        * Local: <app>:<per-service-version>
+        * Docker Hub: DOCKER_HUB_USER/<app>:<per-service-version>
         * Docker Hub: DOCKER_HUB_USER/<app>:latest
 
 ╔════════════════════════════════════════════════════════════════╗

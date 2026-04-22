@@ -30,7 +30,7 @@ services:
         AWS_URL: "http://minio:9090/siimut"
         AWS_ENDPOINT: "http://minio:9090"
         BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-    image: siimut:${VERSION:-latest}
+    image: siimut:${SIIMUT_VERSION:-latest}
     pull_policy: never
 
   ####################################################################################################
@@ -58,7 +58,7 @@ services:
         AWS_URL: "http://minio:9090/ikp"
         AWS_ENDPOINT: "http://minio:9090"
         BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-    image: ikp:${VERSION:-latest}
+    image: ikp:${IKP_VERSION:-latest}
     pull_policy: never
 
   ####################################################################################################
@@ -76,5 +76,5 @@ services:
         APP_ENV: "production"
         APP_DIR: "iam-server"
         BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-    image: iam-server:${VERSION:-latest}
+    image: iam-server:${IAM_VERSION:-latest}
     pull_policy: never

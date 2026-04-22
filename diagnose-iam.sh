@@ -37,8 +37,8 @@ EOF
 echo ""
 
 echo -e "${YELLOW}=== 5. VERIFY ENDPOINT TEST ===${NC}"
-echo "Testing: GET http://127.0.0.1:8000/api/sso/verify"
-docker compose -f docker-compose-multi-apps.yml exec -T app-iam curl -s http://127.0.0.1:8000/api/sso/verify -H "Authorization: Bearer invalid" 2>&1 | head -20
+echo "Testing: GET http://192.168.1.9:8000/api/sso/verify"
+docker compose -f docker-compose-multi-apps.yml exec -T app-iam curl -s http://192.168.1.9:8000/api/sso/verify -H "Authorization: Bearer invalid" 2>&1 | head -20
 echo ""
 
 echo -e "${YELLOW}=== 6. RECENT CONTAINER LOGS (last 50 lines) ===${NC}"

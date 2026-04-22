@@ -11,7 +11,7 @@ if [ -f "env/.env.iam" ]; then
 fi
 
 APP_DIR="${APP_DIR:-iam-server}"
-REPO_URL="${REPO_URL:-https://github.com/juniyasyos/laravel-iam.git}"
+REPO_URL="${REPO_URL:-https://github.com/juniyasyos/auth-server.git}"
 SITE_DIR="site/${APP_DIR}"
 
 echo "======================================"

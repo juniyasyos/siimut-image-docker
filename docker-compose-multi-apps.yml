@@ -59,7 +59,8 @@ services:
   # Pulled from Docker Hub: juniyasyos/siimut:VERSION
   ####################################################################################################
   app-siimut:
-    image: juniyasyos/siimut:v3.1.0
+    image: siimut:v3.1.0
+    # image: juniyasyos/siimut:v3.1.0
     pull_policy: missing
     container_name: siimut-app
     working_dir: /var/www/siimut
@@ -118,7 +119,8 @@ services:
       start_period: 60s
 
   queue-siimut:
-    image: juniyasyos/siimut:v3.1.0
+    image: siimut:v3.1.0
+    # image: juniyasyos/siimut:v3.1.0
     pull_policy: missing
     container_name: siimut-queue
     working_dir: /var/www/siimut
@@ -154,7 +156,8 @@ services:
       start_period: 60s
 
   scheduler-siimut:
-    image: juniyasyos/siimut:v3.1.0
+    image: siimut:v3.1.0
+    # image: juniyasyos/siimut:v3.1.0
     pull_policy: missing
     container_name: siimut-scheduler
     working_dir: /var/www/siimut
@@ -189,7 +192,8 @@ services:
   # Apps IKP (New Application)
   ####################################################################################################
   app-ikp:
-    image: juniyasyos/ikp:v1.3.0
+    image: ikp:v1.3.0
+    # image: juniyasyos/ikp:v1.3.0
     pull_policy: missing
     container_name: ikp-app
     working_dir: /var/www/ikp
@@ -255,7 +259,8 @@ services:
       start_period: 60s
 
   queue-ikp:
-    image: juniyasyos/ikp:v1.3.0
+    image: ikp:v1.3.0
+    # image: juniyasyos/ikp:v1.3.0
     pull_policy: missing
     container_name: ikp-queue
     working_dir: /var/www/ikp
@@ -288,7 +293,8 @@ services:
           cpus: "0.25"
 
   scheduler-ikp:
-    image: juniyasyos/ikp:v1.3.0
+    image: ikp:v1.3.0
+    # image: juniyasyos/ikp:v1.3.0
     pull_policy: missing
     container_name: ikp-scheduler
     working_dir: /var/www/ikp
@@ -320,7 +326,8 @@ services:
   # Apps IAM
   ####################################################################################################
   app-iam:
-    image: juniyasyos/iam-server:v2.1.0
+    image: iam-server:v2.1.0
+    # image: juniyasyos/iam-server:v2.1.0
     pull_policy: missing
     container_name: iam-app
     env_file:
@@ -361,7 +368,8 @@ services:
           - iam-app
 
   queue-iam:
-    image: juniyasyos/iam-server:v2.1.0
+    image: iam-server:v2.1.0
+    # image: juniyasyos/iam-server:v2.1.0
     pull_policy: missing
     container_name: iam-queue
     working_dir: /var/www/iam
@@ -402,7 +410,8 @@ services:
       start_period: 60s
 
   scheduler-iam:
-    image: juniyasyos/iam-server:v2.1.0
+    image: iam-server:v2.1.0
+    # image: juniyasyos/iam-server:v2.1.0
     pull_policy: missing
     container_name: iam-scheduler
     working_dir: /var/www/iam

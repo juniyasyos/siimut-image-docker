@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eo pipefail
 
 echo "🚀 Starting App (Production Registry Mode)"
 
@@ -31,6 +31,19 @@ set_env() {
         sed -i "s~^${key}=.*~${key}=${value}~" .env
     else
         printf '%s=%s\n' "$key" "$value" >> .env
+    fi
+}
+
+# helper for running commands as the www user when available
+run_as_www() {
+    if command -v su-exec >/dev/null 2>&1; then
+        su-exec www "$@"
+    elif command -v gosu >/dev/null 2>&1; then
+        gosu www "$@"
+    elif [ "$(id -u)" = "0" ] && command -v su >/dev/null 2>&1; then
+        su -s /bin/sh www -c "$(printf '%s ' "$@")"
+    else
+        "$@"
     fi
 }
 
@@ -227,6 +240,10 @@ if [ -d storage ]; then
   mkdir -p storage/logs storage/app/public
   mkdir -p bootstrap/cache
   
+  # Remove stale bootstrap cache from previous builds that may reference dev-only providers
+  echo "🧹 Clearing stale bootstrap cache files..."
+  rm -f bootstrap/cache/services.php bootstrap/cache/packages.php bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/events.php bootstrap/cache/modules.php bootstrap/cache/settings.php 2>/dev/null || true
+  
   # Publish and verify Livewire assets (CRITICAL - do this BEFORE symlink)
   echo "📦 Ensuring Livewire assets are published..."
   
@@ -246,7 +263,7 @@ if [ -d storage ]; then
     
     # Attempt to publish
     echo "  🔄 Attempt $LIVEWIRE_RETRY_COUNT/$LIVEWIRE_MAX_RETRIES: Running livewire:publish..."
-    if su-exec www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
+    if run_as_www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
       echo "  ✓ Publish command succeeded"
     else
       echo "  ⚠️ Publish command had exit code > 0"
@@ -273,7 +290,7 @@ if [ -d storage ]; then
       # Try alternative method
       if [ $LIVEWIRE_RETRY_COUNT -eq 1 ] && [ -f vendor/bin/livewire ]; then
         echo "  🔄 Trying vendor/bin/livewire (alternative)..."
-        su-exec www vendor/bin/livewire publish --assets 2>&1 || echo "  ⚠️ Alternative method also failed"
+        run_as_www vendor/bin/livewire publish --assets 2>&1 || echo "  ⚠️ Alternative method also failed"
       fi
     fi
     
@@ -302,7 +319,7 @@ if [ -d storage ]; then
   
   # Clear stale cache files yang mungkin corrupt atau orphaned
   echo "🧹 Cleaning stale cache files..."
-  rm -rf storage/framework/views/*.php 2>/dev/null || true
+  rm -rf storage/framework/views/* 2>/dev/null || true
   rm -rf storage/framework/cache/data/* 2>/dev/null || true
   rm -rf bootstrap/cache/*.php 2>/dev/null || true
   
@@ -318,27 +335,27 @@ echo "⚙️  Warming Laravel caches..."
 
 # Clear all caches first to prevent stale/corrupted cache issues
 echo "🧹 Clearing all caches..."
-su-exec www php artisan cache:clear    >/dev/null 2>&1 || true
-su-exec www php artisan config:clear   >/dev/null 2>&1 || true
-su-exec www php artisan route:clear    >/dev/null 2>&1 || true
-su-exec www php artisan view:clear     >/dev/null 2>&1 || true
-su-exec www php artisan event:clear    >/dev/null 2>&1 || true
+run_as_www php artisan cache:clear    >/dev/null 2>&1 || true
+run_as_www php artisan config:clear   >/dev/null 2>&1 || true
+run_as_www php artisan route:clear    >/dev/null 2>&1 || true
+run_as_www php artisan view:clear     >/dev/null 2>&1 || true
+run_as_www php artisan event:clear    >/dev/null 2>&1 || true
 
 # Discover packages (was skipped at build time with --no-scripts)
 echo "🔍 Running package:discover..."
-su-exec www php artisan package:discover --ansi 2>&1 || echo "⚠️ package:discover failed"
+run_as_www php artisan package:discover --ansi 2>&1 || echo "⚠️ package:discover failed"
 
-# Rebuild caches (skip route:cache - Livewire routes incompatible with caching)
+# Rebuild caches (skip route:cache and view:cache to avoid stale compiled view invalidation)
 echo "♻️  Rebuilding caches..."
-su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
+run_as_www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
 # NOTE: Skipping route:cache due to Livewire compatibility issues
-# su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
-su-exec www php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
-su-exec www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
+# run_as_www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
+echo "ℹ️ Skipping view:cache to avoid stale compiled view invalidation on runtime storage"
+run_as_www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
 
 # Run artisan optimize
 echo "⚡ Running artisan optimize..."
-su-exec www php artisan optimize       >/dev/null 2>&1 || echo "⚠️ artisan optimize failed"
+run_as_www php artisan optimize       >/dev/null 2>&1 || echo "⚠️ artisan optimize failed"
 
 # Verify critical directories are writable
 echo "🔍 Verifying cache directories..."

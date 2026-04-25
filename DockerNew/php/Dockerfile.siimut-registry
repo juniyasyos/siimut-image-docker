@@ -29,6 +29,7 @@ RUN apk add \
   # Install PECL extensions
   && pecl install igbinary apcu \
   && docker-php-ext-enable igbinary apcu \
+  && apk add --no-cache su-exec \
   # Cleanup build dependencies
   && apk del --no-network $PHPIZE_DEPS linux-headers \
   && rm -rf /var/cache/apk/* /tmp/*

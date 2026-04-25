@@ -175,7 +175,7 @@ fi
 
 # Clear stale cache files yang mungkin corrupt atau orphaned
 echo "🧹 Cleaning stale cache files..."
-rm -rf storage/framework/views/*.php 2>/dev/null || true
+rm -rf storage/framework/views/* 2>/dev/null || true
 rm -rf storage/framework/cache/data/* 2>/dev/null || true
 rm -rf bootstrap/cache/*.php 2>/dev/null || true
 
@@ -197,12 +197,12 @@ su-exec www php artisan route:clear    >/dev/null 2>&1 || true
 su-exec www php artisan view:clear     >/dev/null 2>&1 || true
 su-exec www php artisan event:clear    >/dev/null 2>&1 || true
 
-# Rebuild caches (skip route:cache - Livewire routes incompatible with caching)
+# Rebuild caches (skip route:cache and view:cache to avoid stale compiled view invalidation)
 echo "♻️  Rebuilding caches..."
 su-exec www php artisan config:cache   >/dev/null 2>&1 || echo "⚠️ config:cache failed"
 # NOTE: Skipping route:cache due to Livewire compatibility issues
 # su-exec www php artisan route:cache    >/dev/null 2>&1 || echo "⚠️ route:cache failed"
-su-exec www php artisan view:cache     >/dev/null 2>&1 || echo "⚠️ view:cache failed"
+echo "ℹ️ Skipping view:cache to avoid stale compiled view invalidation on runtime storage"
 su-exec www php artisan event:cache    >/dev/null 2>&1 || echo "⚠️ event:cache failed"
 
 # Run artisan optimize

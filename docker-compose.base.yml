@@ -173,6 +173,29 @@ services:
           memory: 128M
           cpus: "0.05"
 
+    ####################################################################################################
+  
+  # Docker Resource Monitoring (cAdvisor)
+  ####################################################################################################
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.2"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+          
 volumes:
   minio_data:
 

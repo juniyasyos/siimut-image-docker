@@ -175,29 +175,33 @@ services:
 
     ####################################################################################################
   
-  # Docker Resource Monitoring (cAdvisor)
+  # Docker Container Management UI (Portainer)
   ####################################################################################################
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+  portainer:
+    image: portainer/portainer-ce:latest
     restart: unless-stopped
     ports:
-      - "8088:8088"
+      - "9000:9000"
+    command:
+      - --admin-password-file
+      - /run/secrets/portainer_admin_password
     volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+      - ./portainer_admin_password.txt:/run/secrets/portainer_admin_password:ro
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 256M
           cpus: "0.2"
         reservations:
-          memory: 64M
+          memory: 128M
           cpus: "0.1"
           
 volumes:
   minio_data:
+
+  portainer_data:
 
   db_data:
     driver: local

@@ -80,7 +80,7 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_BUCKET: siimut
-      AWS_URL: http://minio:9090/siimut
+      AWS_URL: http://192.168.1.4:9090/siimut
       AWS_ENDPOINT: http://minio:9090
       # SSO Configuration - Override from compose
       USE_SSO: "false"
@@ -214,7 +214,7 @@ services:
   #     AWS_ACCESS_KEY_ID: admin
   #     AWS_SECRET_ACCESS_KEY: password
   #     AWS_BUCKET: ikp
-  #     AWS_URL: http://minio:9090/ikp
+  #     AWS_URL: http://192.168.1.4:9090/ikp
   #     AWS_ENDPOINT: http://minio:9090
   #     # DEPARTEMENTS SYNC SETUP 
   #     MANAGE_UNIT_KERJA_APP_CENTER_URL: "http://web:8100"

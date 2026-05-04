@@ -83,8 +83,8 @@ services:
       AWS_URL: http://192.168.1.9:9090/siimut
       AWS_ENDPOINT: http://minio:9090
       # SSO Configuration - Override from compose
-      USE_SSO: "false"
-      IAM_ENABLED: "false"
+      USE_SSO: "true"
+      IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
       IAM_HOST: "http://192.168.1.9:8100"
       IAM_BASE_URL: "http://192.168.1.9:8100"
@@ -342,6 +342,14 @@ services:
       # IAM Server Configuration - Override from compose
       APP_URL: "http://192.168.1.9:8100"
       IAM_ISSUER: "http://192.168.1.9:8100"
+      # MinIO S3 Configuration (use Docker service name, not localhost)
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: data-center
+      AWS_URL: http://192.168.1.9:9090/data-center
+      AWS_ENDPOINT: http://minio:9090
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:
       # Only persistent data, NO CODE mounts
       - iam_storage:/var/www/iam/storage
@@ -382,6 +390,14 @@ services:
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
+      # MinIO S3 Configuration (use Docker service name, not localhost)
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: data-center
+      AWS_URL: http://192.168.1.9:9090/data-center
+      AWS_ENDPOINT: http://minio:9090
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:
       - iam_storage:/var/www/iam/storage
       - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
@@ -424,6 +440,14 @@ services:
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
+      # MinIO S3 Configuration (use Docker service name, not localhost)
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: data-center
+      AWS_URL: http://192.168.1.9:9090/data-center
+      AWS_ENDPOINT: http://minio:9090
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:
       - iam_storage:/var/www/iam/storage
       - iam_bootstrap_cache:/var/www/iam/bootstrap/cache

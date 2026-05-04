@@ -396,7 +396,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_BUCKET: data-center
       AWS_URL: http://192.168.1.9:9090/data-center
-      AWS_ENDPOINT: http://minio:9090
+      AWS_ENDPOINT: http://192.168.1.9:9090
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:
       - iam_storage:/var/www/iam/storage

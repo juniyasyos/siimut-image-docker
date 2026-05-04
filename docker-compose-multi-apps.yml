@@ -200,8 +200,8 @@ services:
     env_file:
       - ./env/.env.ikp
     environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
+      APP_ENV: production
+      APP_DEBUG: "false"
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
       APP_URL: "http://192.168.1.9:8200"

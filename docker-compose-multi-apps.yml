@@ -246,11 +246,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G
-          cpus: "1.5"
+          memory: 3.75G
+          cpus: "3.75"
         reservations:
-          memory: 768M
-          cpus: "0.75"
+          memory: 1920M
+          cpus: "1.875"
     healthcheck:
       test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
       interval: 30s
@@ -286,11 +286,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: "1.0"
+          memory: 1.28G
+          cpus: "2.5"
         reservations:
-          memory: 128M
-          cpus: "0.25"
+          memory: 320M
+          cpus: "0.625"
 
   scheduler-ikp:
     image: ikp:v1.3.0
@@ -315,11 +315,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: "0.25"
+          memory: 640M
+          cpus: "0.625"
         reservations:
-          memory: 128M
-          cpus: "0.125"
+          memory: 320M
+          cpus: "0.3125"
 
 
   ####################################################################################################
@@ -359,11 +359,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
-          cpus: "1.2"
+          memory: 5G
+          cpus: "3.0"
         reservations:
-          memory: 1G
-          cpus: "0.5"
+          memory: 2.5G
+          cpus: "1.25"
     healthcheck:
       test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
       interval: 30s
@@ -413,11 +413,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: "1.0"
+          memory: 1.28G
+          cpus: "2.5"
         reservations:
-          memory: 128M
-          cpus: "0.25"
+          memory: 320M
+          cpus: "0.625"
     healthcheck:
       test: ["CMD-SHELL", "php artisan --version >/dev/null 2>&1"]
       interval: 30s
@@ -458,11 +458,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: "0.25"
+          memory: 640M
+          cpus: "0.625"
         reservations:
-          memory: 128M
-          cpus: "0.125"
+          memory: 320M
+          cpus: "0.3125"
     healthcheck:
       test: ["CMD-SHELL", "php artisan --version >/dev/null 2>&1"]
       interval: 30s

@@ -55,7 +55,6 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY site/${APP_DIR}/composer.json site/${APP_DIR}/composer.lock* ./
 RUN set -eux; \
     composer install \
-      --no-dev \
       --prefer-dist \
       --no-interaction \
       --no-progress \

@@ -54,6 +54,7 @@ services:
         DB_DATABASE: "ikp_db"
         AWS_ACCESS_KEY_ID: "admin"
         AWS_SECRET_ACCESS_KEY: "password"
+        DEBUGBAR_ENABLED: true
         AWS_BUCKET: "ikp"
         AWS_URL: "http://minio:9090/ikp"
         AWS_ENDPOINT: "http://minio:9090"

@@ -104,30 +104,6 @@ else
     echo "ℹ️  PUBLIC_VOLUME not set or doesn't exist, skipping public sync"
 fi
 
-# Wait for database
-echo "⏳ Waiting for database..."
-php -r '
-$host    = getenv("DB_HOST") ?: "database-service";
-$port    = getenv("DB_PORT") ?: 3306;
-$timeout = 60;
-$start   = time();
-
-while (true) {
-    $fp = @fsockopen($host, $port, $errno, $errstr, 2);
-    if ($fp) {
-        fclose($fp);
-        fwrite(STDOUT, "✅ Database connected: {$host}:{$port}\n");
-        break;
-    }
-    if (time() - $start > $timeout) {
-        fwrite(STDERR, "❌ Database timeout after {$timeout}s\n");
-        exit(1);
-    }
-    fwrite(STDOUT, "… waiting for DB {$host}:{$port}\n");
-    sleep(2);
-}
-'
-
 # Fix permissions BEFORE cache warming (penting!)
 echo "🔧 Setting up permissions..."
 # Ensure required folders exist even if storage/ is not committed or overridden by a mount

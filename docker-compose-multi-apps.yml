@@ -68,6 +68,7 @@ services:
       - ./env/.env.siimut
     environment:
       APP_ENV: production
+      APP_DEBUG: true
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
       APP_URL: "http://192.168.1.9:8000"
@@ -216,10 +217,6 @@ services:
       AWS_BUCKET: ikp
       AWS_URL: http://192.168.1.9:9090/ikp
       AWS_ENDPOINT: http://192.168.1.9:9090
-      # DEPARTEMENTS SYNC SETUP 
-      MANAGE_UNIT_KERJA_APP_CENTER_URL: "http://web:8100"
-      MANAGE_UNIT_KERJA_APP_ENV: local
-      MANAGE_UNIT_KERJA_CENTER_APPLICATION: true
       # SSO Configuration - Override from compose
       USE_SSO: "true"
       IAM_ENABLED: "true"

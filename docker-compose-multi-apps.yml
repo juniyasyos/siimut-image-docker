@@ -71,7 +71,7 @@ services:
       APP_DEBUG: true
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.4:8000"
+      APP_URL: "http://192.168.1.9:8000"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
@@ -81,15 +81,15 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_BUCKET: siimut
-      AWS_URL: http://192.168.1.4:9090/siimut
+      AWS_URL: http://192.168.1.9:9090/siimut
       AWS_ENDPOINT: http://minio:9090
       # SSO Configuration - Override from compose
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.4:8100"
-      IAM_BASE_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
+      IAM_HOST: "http://192.168.1.9:8100"
+      IAM_BASE_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       # Internal container verification & API calls use Docker network service name
       IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
       IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
@@ -205,7 +205,7 @@ services:
       APP_DEBUG: "false"
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
-      APP_URL: "http://192.168.1.4:8200"
+      APP_URL: "http://192.168.1.9:8200"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: ikp_user
@@ -215,15 +215,15 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_BUCKET: ikp
-      AWS_URL: http://192.168.1.4:9090/ikp
-      AWS_ENDPOINT: http://192.168.1.4:9090
+      AWS_URL: http://192.168.1.9:9090/ikp
+      AWS_ENDPOINT: http://192.168.1.9:9090
       # SSO Configuration - Override from compose
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.4:8100"
-      IAM_BASE_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
+      IAM_HOST: "http://192.168.1.9:8100"
+      IAM_BASE_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       # Internal container verification & API calls use Docker network service name
       IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
       IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
@@ -337,14 +337,14 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
+      APP_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       # MinIO S3 Configuration (use Docker service name, not localhost)
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_DEFAULT_REGION: us-east-1
       AWS_BUCKET: data-center
-      AWS_URL: http://192.168.1.4:9090/data-center
+      AWS_URL: http://192.168.1.9:9090/data-center
       AWS_ENDPOINT: http://minio:9090
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:
@@ -382,8 +382,8 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
+      APP_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
@@ -392,8 +392,8 @@ services:
       AWS_SECRET_ACCESS_KEY: password
       AWS_DEFAULT_REGION: us-east-1
       AWS_BUCKET: data-center
-      AWS_URL: http://192.168.1.4:9090/data-center
-      AWS_ENDPOINT: http://192.168.1.4:9090
+      AWS_URL: http://192.168.1.9:9090/data-center
+      AWS_ENDPOINT: http://192.168.1.9:9090
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:
       - iam_storage:/var/www/iam/storage
@@ -432,8 +432,8 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
+      APP_URL: "http://192.168.1.9:8100"
+      IAM_ISSUER: "http://192.168.1.9:8100"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
@@ -442,7 +442,7 @@ services:
       AWS_SECRET_ACCESS_KEY: password
       AWS_DEFAULT_REGION: us-east-1
       AWS_BUCKET: data-center
-      AWS_URL: http://192.168.1.4:9090/data-center
+      AWS_URL: http://192.168.1.9:9090/data-center
       AWS_ENDPOINT: http://minio:9090
       AWS_USE_PATH_STYLE_ENDPOINT: "true"
     volumes:

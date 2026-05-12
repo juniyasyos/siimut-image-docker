@@ -138,19 +138,21 @@ if [ -n "${PUBLIC_VOLUME}" ] && [ -d "${PUBLIC_VOLUME}" ]; then
             
             # Rsync or cp (rsync lebih efficient untuk update)
             if command -v rsync >/dev/null 2>&1; then
-                rsync -a --delete "${APP_WORKDIR}/public/" "${PUBLIC_VOLUME}/"
-                echo "✅ Public assets synced via rsync"
+              # Run sync as www to avoid root-owned files in mounted volume
+              run_as_www rsync -a --delete "${APP_WORKDIR}/public/" "${PUBLIC_VOLUME}/" && 
+                echo "✅ Public assets synced via rsync" || echo "⚠️ rsync failed"
             else
-                # Fallback to cp
-                if [ -d "${PUBLIC_VOLUME}" ] && [ "$(ls -A ${PUBLIC_VOLUME} 2>/dev/null)" ]; then
-                    rm -rf "${PUBLIC_VOLUME:?}"/*
-                fi
-                cp -r "${APP_WORKDIR}/public/." "${PUBLIC_VOLUME}/"
-                echo "✅ Public assets copied"
+              # Fallback to cp (run as www)
+              if [ -d "${PUBLIC_VOLUME}" ] && [ "$(ls -A ${PUBLIC_VOLUME} 2>/dev/null)" ]; then
+                rm -rf "${PUBLIC_VOLUME:?}"/*
+              fi
+              run_as_www cp -r "${APP_WORKDIR}/public/." "${PUBLIC_VOLUME}/" && 
+                echo "✅ Public assets copied" || echo "⚠️ cp failed"
             fi
             
-            # Set permissions for Caddy to read
-            chmod -R 755 "${PUBLIC_VOLUME}"
+            # Set permissions for Caddy to read (ensure owned by www)
+            chown -R www:www "${PUBLIC_VOLUME}" 2>/dev/null || true
+            chmod -R 755 "${PUBLIC_VOLUME}" 2>/dev/null || true
         fi
     fi
 else

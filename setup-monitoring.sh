@@ -117,6 +117,9 @@ setup_monitoring_server() {
     log_info "Menjalankan monitoring stack..."
     $compose_cmd -f "$COMPOSE_MONITORING" up -d
 
+    log_info "Menjalankan testing setelah startup..."
+    run_monitoring_tests "$target_ip"
+
     log_success "Monitoring stack aktif"
     echo ""
     echo "Akses:"
@@ -151,10 +154,60 @@ setup_target_server() {
     log_info "Menjalankan node exporter di target server..."
     $compose_cmd -f "$COMPOSE_NODE_EXPORTER" up -d
 
+    log_info "Menjalankan testing setelah startup..."
+    run_target_server_tests
+
     log_success "Node exporter aktif"
     echo ""
     echo "Metrics endpoint: http://localhost:9100/metrics"
     echo "Monitoring server yang diizinkan: ${monitoring_ip}"
+}
+
+run_monitoring_tests() {
+    local target_ip="$1"
+    local failures=0
+
+    if curl -fsS http://localhost:9090/-/healthy >/dev/null; then
+        log_success "Test Prometheus health: OK"
+    else
+        log_error "Test Prometheus health: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if curl -fsS http://localhost:3000/api/health >/dev/null; then
+        log_success "Test Grafana health: OK"
+    else
+        log_error "Test Grafana health: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if curl -fsS http://localhost:9090/api/v1/targets | grep -q "${target_ip}:9100"; then
+        log_success "Test scrape target ${target_ip}:9100: OK"
+    else
+        log_error "Test scrape target ${target_ip}:9100: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if [[ "$failures" -gt 0 ]]; then
+        log_error "Monitoring setup test gagal (${failures} pemeriksaan gagal)"
+        exit 1
+    fi
+}
+
+run_target_server_tests() {
+    local failures=0
+
+    if curl -fsS http://localhost:9100/metrics >/dev/null; then
+        log_success "Test node exporter metrics endpoint: OK"
+    else
+        log_error "Test node exporter metrics endpoint: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if [[ "$failures" -gt 0 ]]; then
+        log_error "Target server setup test gagal (${failures} pemeriksaan gagal)"
+        exit 1
+    fi
 }
 
 main() {

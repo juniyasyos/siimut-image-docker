@@ -1,1 +1,168 @@
-{"annotations":{"list":[{"builtIn":1,"datasource":"-- Grafana --","enable":true,"hide":true,"iconColor":"#000000","name":"Annotations & Events","type":"dashboard"}]},"editable":true,"gnetId":null,"graphTooltip":0,"id":null,"links":[],"panels":[{"datasource":"Prometheus","fieldConfig":{"defaults":{},"overrides":[]},"gridPos":{"h":8,"w":12,"x":0,"y":0},"id":1,"options":{"displayMode":"lcd","reduceOptions":{"calcs":["last"],"fields":"","values":false},"orientation":"auto","showThresholdLabels":false,"showThresholdMarkers":true},"pluginVersion":"9.0.0","targets":[{"expr":"100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)","legendFormat":"CPU {{instance}}","refId":"A"}],"title":"CPU Usage (%)","type":"gauge"},{"datasource":"Prometheus","fieldConfig":{"defaults":{},"overrides":[]},"gridPos":{"h":8,"w":12,"x":12,"y":0},"id":2,"options":{"orientation":"auto","reduceOptions":{"calcs":["last"],"fields":"","values":false}},"pluginVersion":"9.0.0","targets":[{"expr":"(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100","legendFormat":"Memory {{instance}}","refId":"A"}],"title":"Memory Usage (%)","type":"gauge"},{"datasource":"Prometheus","fieldConfig":{"defaults":{},"overrides":[]},"gridPos":{"h":8,"w":24,"x":0,"y":8},"id":3,"options":{"legend":{"displayMode":"list","placement":"bottom"}},"targets":[{"expr":"sum by (instance) (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"})","legendFormat":"Avail {{instance}}","refId":"A"}],"title":"Filesystem Available (bytes)","type":"timeseries"}],"refresh":"30s","schemaVersion":32,"style":"dark","tags":["node","exporter","basic"],"templating":{"list":[]},"time":{"from":"now-1h","to":"now"},"timepicker":{},"timezone":"","title":"Node Exporter - Basic","uid":"node-exporter-basic","version":1}
+{
+    "title": "Node Exporter - Clean Production",
+    "uid": "node-exporter-clean",
+    "schemaVersion": 38,
+    "style": "dark",
+    "refresh": "30s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "templating": {
+        "list": [
+            {
+                "name": "instance",
+                "type": "query",
+                "datasource": "Prometheus",
+                "query": "label_values(node_cpu_seconds_total, instance)",
+                "refresh": 1
+            }
+        ]
+    },
+    "panels": [
+        {
+            "type": "stat",
+            "title": "CPU Usage",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 6,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "thresholds": {
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 70
+                            },
+                            {
+                                "color": "red",
+                                "value": 85
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "type": "stat",
+            "title": "Memory Usage",
+            "gridPos": {
+                "x": 6,
+                "y": 0,
+                "w": 6,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "expr": "(1 - (node_memory_MemAvailable_bytes{instance=\"$instance\"} / node_memory_MemTotal_bytes{instance=\"$instance\"})) * 100"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Load (1m)",
+            "gridPos": {
+                "x": 12,
+                "y": 0,
+                "w": 6,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "expr": "node_load1{instance=\"$instance\"}"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Uptime",
+            "gridPos": {
+                "x": 18,
+                "y": 0,
+                "w": 6,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "expr": "node_time_seconds{instance=\"$instance\"} - node_boot_time_seconds{instance=\"$instance\"}"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "CPU Usage Trend",
+            "gridPos": {
+                "x": 0,
+                "y": 4,
+                "w": 12,
+                "h": 8
+            },
+            "targets": [
+                {
+                    "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "Memory Trend",
+            "gridPos": {
+                "x": 12,
+                "y": 4,
+                "w": 12,
+                "h": 8
+            },
+            "targets": [
+                {
+                    "expr": "(1 - (node_memory_MemAvailable_bytes{instance=\"$instance\"} / node_memory_MemTotal_bytes{instance=\"$instance\"})) * 100"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "Disk Usage %",
+            "gridPos": {
+                "x": 0,
+                "y": 12,
+                "w": 12,
+                "h": 8
+            },
+            "targets": [
+                {
+                    "expr": "(node_filesystem_size_bytes{instance=\"$instance\",fstype!~\"tmpfs|overlay\"} - node_filesystem_free_bytes{instance=\"$instance\",fstype!~\"tmpfs|overlay\"}) / node_filesystem_size_bytes{instance=\"$instance\",fstype!~\"tmpfs|overlay\"} * 100"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "Network Traffic",
+            "gridPos": {
+                "x": 12,
+                "y": 12,
+                "w": 12,
+                "h": 8
+            },
+            "targets": [
+                {
+                    "expr": "rate(node_network_receive_bytes_total{instance=\"$instance\"}[5m])"
+                },
+                {
+                    "expr": "rate(node_network_transmit_bytes_total{instance=\"$instance\"}[5m])"
+                }
+            ]
+        }
+    ]
+}

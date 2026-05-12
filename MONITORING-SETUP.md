@@ -31,6 +31,17 @@ bash setup-monitoring.sh monitoring <TARGET_SERVER_IP>
 bash setup-monitoring.sh target-server <MONITORING_SERVER_IP>
 ```
 
+Automasi tambahan:
+
+- Skrip provisioning Grafana otomatis akan mencoba mengunduh dashboard populer (Node Exporter Full) dan menyimpannya di `monitoring/grafana/provisioning/dashboards/`.
+- Password Grafana tetap `admin/admin` karena ini hanya untuk server lokal.
+
+Contoh pemakaian:
+
+```bash
+bash setup-monitoring.sh monitoring 192.168.1.4
+```
+
 ### 1. Production Server - Deploy Node Exporter
 
 ```bash

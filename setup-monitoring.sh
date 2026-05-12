@@ -114,6 +114,15 @@ setup_monitoring_server() {
 
     update_prometheus_target "$target_ip"
 
+    # Ensure Grafana dashboards are provisioned automatically
+    if [[ -x "$SCRIPT_DIR/monitoring/provision-grafana.sh" ]]; then
+        log_info "Provisioning Grafana dashboards..."
+        # try download default dashboard (node exporter full)
+        "$SCRIPT_DIR/monitoring/provision-grafana.sh" 1860 || log_warn "Could not download Grafana dashboard(s)"
+    else
+        log_warn "Provisioning script not found or not executable: $SCRIPT_DIR/monitoring/provision-grafana.sh"
+    fi
+
     log_info "Menjalankan monitoring stack..."
     $compose_cmd -f "$COMPOSE_MONITORING" up -d
 

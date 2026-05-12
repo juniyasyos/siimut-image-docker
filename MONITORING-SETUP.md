@@ -19,6 +19,18 @@ Production Server (siimut-docker)          Monitoring Server
 
 ## 🚀 Quick Start
 
+### 0. Otomatisasi Setup dengan Bash
+
+Jika Anda ingin setup lebih cepat, pakai skrip berikut dari root repo:
+
+```bash
+# Di monitoring server: update target IP lalu start Prometheus + Grafana
+bash setup-monitoring.sh monitoring <TARGET_SERVER_IP>
+
+# Di target/production server: start Node Exporter dan buka akses ke monitoring server
+bash setup-monitoring.sh target-server <MONITORING_SERVER_IP>
+```
+
 ### 1. Production Server - Deploy Node Exporter
 
 ```bash

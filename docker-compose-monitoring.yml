@@ -51,7 +51,8 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
       - "--web.enable-lifecycle"  # Enable config reload via API
     restart: unless-stopped
-    user: "nobody:nogroup"
+    # Use numeric UID/GID to avoid host-specific nobody/nogroup lookup failures
+    user: "65534:65534"
     deploy:
       resources:
         limits:

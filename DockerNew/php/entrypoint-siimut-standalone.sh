@@ -75,24 +75,41 @@ while (true) {
 
 # Fix permissions BEFORE cache warming (penting!)
 echo "🔧 Setting up permissions..."
-if [ -d storage ]; then
-  # Buat direktori cache jika belum ada
-  mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views
-  mkdir -p storage/logs storage/app/public
-  mkdir -p bootstrap/cache
-  
-  # Clear stale cache files yang mungkin corrupt atau orphaned
-  echo "🧹 Cleaning stale cache files..."
-  rm -rf storage/framework/views/*.php 2>/dev/null || true
-  rm -rf storage/framework/cache/data/* 2>/dev/null || true
-  rm -rf bootstrap/cache/*.php 2>/dev/null || true
-  
-  # Set ownership dan permission
-  chown -R www:www storage bootstrap/cache 2>/dev/null || true
-  chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
-  
-  echo "✅ Permissions set"
+# ALWAYS run permission setup, tidak peduli folder sudah ada atau tidak
+# (Ini penting untuk fix permission dari volume yang dimount dari run sebelumnya)
+mkdir -p storage/framework/cache/data \
+         storage/framework/sessions \
+         storage/framework/views \
+         storage/framework/testing \
+         storage/logs \
+         storage/app/public \
+         bootstrap/cache
+
+# Ensure Laravel log file exists and is writable (prevents "Permission denied" on first write)
+touch storage/logs/laravel.log
+
+# Clear stale cache files yang mungkin corrupt atau orphaned
+echo "🧹 Cleaning stale cache files..."
+rm -rf storage/framework/views/*.php 2>/dev/null || true
+rm -rf storage/framework/cache/data/* 2>/dev/null || true
+rm -rf bootstrap/cache/*.php 2>/dev/null || true
+
+# Set ownership dan permission - CRITICAL FIX!
+# Run TANPA if [ -d storage ] check agar selalu di-execute
+echo "  Setting ownership to www:www..."
+chown -R www:www storage bootstrap/cache 2>/dev/null || true
+echo "  Setting write permissions..."
+chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
+chmod 664 storage/logs/laravel.log 2>/dev/null || true
+
+# Verify permissions were set correctly
+if [ -d storage ] && [ ! -w storage/framework/cache ]; then
+  echo "⚠️  WARNING: storage/framework/cache is still not writable after chmod!"
+  echo "   Current ownership: $(ls -ld storage/framework/cache | awk '{print $3":"$4}')"
+  echo "   Current permissions: $(ls -ld storage/framework/cache | awk '{print $1}')"
 fi
+
+echo "✅ Permissions set"
 
 # Build Frontend Assets
 echo "📦 Building frontend assets..."

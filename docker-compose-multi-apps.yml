@@ -108,7 +108,7 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: "2"
+          cpus: "1"
         reservations:
           memory: 512M
           cpus: "0.5"
@@ -243,8 +243,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G
-          cpus: "2"
+          memory: 1G
+          cpus: "1"
         reservations:
           memory: 512M
           cpus: "0.5"
@@ -356,8 +356,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G
-          cpus: "2"
+          memory: 1G
+          cpus: "1.5"
         reservations:
           memory: 512M
           cpus: "0.5"

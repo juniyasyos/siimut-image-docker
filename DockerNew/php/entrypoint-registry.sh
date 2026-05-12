@@ -159,101 +159,116 @@ fi
 
 # Fix permissions BEFORE cache warming (penting!)
 echo "🔧 Setting up permissions..."
-if [ -d storage ]; then
-  # Buat direktori cache jika belum ada
-  mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views
-  mkdir -p storage/logs storage/app/public
-  mkdir -p bootstrap/cache
+mkdir -p storage/framework/cache/data \
+         storage/framework/sessions \
+         storage/framework/views \
+         storage/framework/testing \
+         storage/logs \
+         storage/app/public \
+         bootstrap/cache
+
+# Ensure Laravel log file exists and is writable (prevents "Permission denied" on first write)
+touch storage/logs/laravel.log
+
+# Remove stale bootstrap cache from previous builds that may reference dev-only providers
+echo "🧹 Clearing stale bootstrap cache files..."
+rm -f bootstrap/cache/services.php bootstrap/cache/packages.php bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/events.php bootstrap/cache/modules.php bootstrap/cache/settings.php 2>/dev/null || true
+
+# Publish and verify Livewire assets (CRITICAL - do this BEFORE symlink)
+echo "📦 Ensuring Livewire assets are published..."
+
+LIVEWIRE_MAX_RETRIES=3
+LIVEWIRE_RETRY_COUNT=0
+LIVEWIRE_PUBLISHED=0
+
+while [ $LIVEWIRE_RETRY_COUNT -lt $LIVEWIRE_MAX_RETRIES ] && [ $LIVEWIRE_PUBLISHED -eq 0 ]; do
+  LIVEWIRE_RETRY_COUNT=$((LIVEWIRE_RETRY_COUNT + 1))
   
-  # Remove stale bootstrap cache from previous builds that may reference dev-only providers
-  echo "🧹 Clearing stale bootstrap cache files..."
-  rm -f bootstrap/cache/services.php bootstrap/cache/packages.php bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/events.php bootstrap/cache/modules.php bootstrap/cache/settings.php 2>/dev/null || true
+  # Check if assets already exist
+  if [ -d public/vendor/livewire ] && [ -f public/vendor/livewire/livewire.min.js ]; then
+    echo "✅ Livewire assets already present"
+    LIVEWIRE_PUBLISHED=1
+    break
+  fi
   
-  # Publish and verify Livewire assets (CRITICAL - do this BEFORE symlink)
-  echo "📦 Ensuring Livewire assets are published..."
-  
-  LIVEWIRE_MAX_RETRIES=3
-  LIVEWIRE_RETRY_COUNT=0
-  LIVEWIRE_PUBLISHED=0
-  
-  while [ $LIVEWIRE_RETRY_COUNT -lt $LIVEWIRE_MAX_RETRIES ] && [ $LIVEWIRE_PUBLISHED -eq 0 ]; do
-    LIVEWIRE_RETRY_COUNT=$((LIVEWIRE_RETRY_COUNT + 1))
-    
-    # Check if assets already exist
-    if [ -d public/vendor/livewire ] && [ -f public/vendor/livewire/livewire.min.js ]; then
-      echo "✅ Livewire assets already present"
-      LIVEWIRE_PUBLISHED=1
-      break
-    fi
-    
-    # Attempt to publish
-    echo "  🔄 Attempt $LIVEWIRE_RETRY_COUNT/$LIVEWIRE_MAX_RETRIES: Running livewire:publish..."
-    if run_as_www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
-      echo "  ✓ Publish command succeeded"
-    else
-      echo "  ⚠️ Publish command had exit code > 0"
-    fi
-    
-    # Verify assets exist after publish attempt
-    if [ -d public/vendor/livewire ] && [ -f public/vendor/livewire/livewire.min.js ]; then
-      echo "  ✅ Livewire assets verified at public/vendor/livewire/"
-      LIVEWIRE_PUBLISHED=1
-      break
-    elif [ -d public/vendor/livewire ]; then
-      echo "  ⚠️ Directory exists but livewire.min.js missing. Contents:"
-      ls -la public/vendor/livewire/ | head -5
-    else
-      echo "  ❌ public/vendor/livewire directory not found"
-      
-      # Debug: show what's in public/vendor/
-      if [ -d public/vendor ]; then
-        echo "  📋 Available in public/vendor: $(ls -1 public/vendor/ 2>/dev/null | tr '\n' ' ')"
-      else
-        echo "  📋 public/vendor directory does not exist"
-      fi
-      
-      # Try alternative method
-      if [ $LIVEWIRE_RETRY_COUNT -eq 1 ] && [ -f vendor/bin/livewire ]; then
-        echo "  🔄 Trying vendor/bin/livewire (alternative)..."
-        run_as_www vendor/bin/livewire publish --assets 2>&1 || echo "  ⚠️ Alternative method also failed"
-      fi
-    fi
-    
-    # Wait before retry
-    if [ $LIVEWIRE_RETRY_COUNT -lt $LIVEWIRE_MAX_RETRIES ] && [ $LIVEWIRE_PUBLISHED -eq 0 ]; then
-      echo "  ⏳ Waiting 2 seconds before retry..."
-      sleep 2
-    fi
-  done
-  
-  # Create symlink (only if assets are actually present)
-  if [ -d public/vendor/livewire ]; then
-    if [ ! -L public/livewire ]; then
-      rm -f public/livewire  # Remove if it's a regular directory
-      ln -s vendor/livewire public/livewire
-      echo "✅ Created symlink: public/livewire -> vendor/livewire"
-    else
-      echo "✅ Symlink public/livewire -> vendor/livewire already exists"
-    fi
+  # Attempt to publish
+  echo "  🔄 Attempt $LIVEWIRE_RETRY_COUNT/$LIVEWIRE_MAX_RETRIES: Running livewire:publish..."
+  if run_as_www php artisan livewire:publish --assets 2>&1 | tee /tmp/livewire-publish.log; then
+    echo "  ✓ Publish command succeeded"
   else
-    echo "❌ CRITICAL: Livewire assets could not be published after $LIVEWIRE_MAX_RETRIES attempts!"
-    echo "📋 Check /tmp/livewire-publish.log for details"
-    echo "This will cause Livewire 404 errors in the application!"
-    # Don't exit - let app start anyway, but log the issue
-  fi 
+    echo "  ⚠️ Publish command had exit code > 0"
+  fi
+  
+  # Verify assets exist after publish attempt
+  if [ -d public/vendor/livewire ] && [ -f public/vendor/livewire/livewire.min.js ]; then
+    echo "  ✅ Livewire assets verified at public/vendor/livewire/"
+    LIVEWIRE_PUBLISHED=1
+    break
+  elif [ -d public/vendor/livewire ]; then
+    echo "  ⚠️ Directory exists but livewire.min.js missing. Contents:"
+    ls -la public/vendor/livewire/ | head -5
+  else
+    echo "  ❌ public/vendor/livewire directory not found"
+    
+    # Debug: show what's in public/vendor/
+    if [ -d public/vendor ]; then
+      echo "  📋 Available in public/vendor: $(ls -1 public/vendor/ 2>/dev/null | tr '\n' ' ')"
+    else
+      echo "  📋 public/vendor directory does not exist"
+    fi
+    
+    # Try alternative method
+    if [ $LIVEWIRE_RETRY_COUNT -eq 1 ] && [ -f vendor/bin/livewire ]; then
+      echo "  🔄 Trying vendor/bin/livewire (alternative)..."
+      run_as_www vendor/bin/livewire publish --assets 2>&1 || echo "  ⚠️ Alternative method also failed"
+    fi
+  fi
+  
+  # Wait before retry
+  if [ $LIVEWIRE_RETRY_COUNT -lt $LIVEWIRE_MAX_RETRIES ] && [ $LIVEWIRE_PUBLISHED -eq 0 ]; then
+    echo "  ⏳ Waiting 2 seconds before retry..."
+    sleep 2
+  fi
+done
+
+# Create symlink (only if assets are actually present)
+if [ -d public/vendor/livewire ]; then
+  if [ ! -L public/livewire ]; then
+    rm -f public/livewire  # Remove if it's a regular directory
+    ln -s vendor/livewire public/livewire
+    echo "✅ Created symlink: public/livewire -> vendor/livewire"
+  else
+    echo "✅ Symlink public/livewire -> vendor/livewire already exists"
+  fi
+else
+  echo "❌ CRITICAL: Livewire assets could not be published after $LIVEWIRE_MAX_RETRIES attempts!"
+  echo "📋 Check /tmp/livewire-publish.log for details"
+  echo "This will cause Livewire 404 errors in the application!"
+  # Don't exit - let app start anyway, but log the issue
+fi
   
   # Clear stale cache files yang mungkin corrupt atau orphaned
-  echo "🧹 Cleaning stale cache files..."
-  rm -rf storage/framework/views/* 2>/dev/null || true
-  rm -rf storage/framework/cache/data/* 2>/dev/null || true
-  rm -rf bootstrap/cache/*.php 2>/dev/null || true
-  
-  # Set ownership dan permission
-  chown -R www:www storage bootstrap/cache 2>/dev/null || true
-  chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
-  
-  echo "✅ Permissions set"
+echo "🧹 Cleaning stale cache files..."
+rm -rf storage/framework/views/* 2>/dev/null || true
+rm -rf storage/framework/cache/data/* 2>/dev/null || true
+rm -rf bootstrap/cache/*.php 2>/dev/null || true
+
+# Set ownership dan permission - CRITICAL FIX!
+# Run TANPA if [ -d storage ] check agar selalu di-execute
+echo "  Setting ownership to www:www..."
+chown -R www:www storage bootstrap/cache 2>/dev/null || true
+echo "  Setting write permissions..."
+chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true
+chmod 664 storage/logs/laravel.log 2>/dev/null || true
+
+# Verify permissions were set correctly
+if [ ! -w storage/framework/cache ]; then
+  echo "⚠️  WARNING: storage/framework/cache is still not writable after chmod!"
+  echo "   Current ownership: $(ls -ld storage/framework/cache | awk '{print $3":"$4}')"
+  echo "   Current permissions: $(ls -ld storage/framework/cache | awk '{print $1}')"
 fi
+
+echo "✅ Permissions set"
 
 # Laravel cache warming (run as www user)
 echo "⚙️  Warming Laravel caches..."

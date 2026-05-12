@@ -123,7 +123,7 @@ setup_monitoring_server() {
     log_success "Monitoring stack aktif"
     echo ""
     echo "Akses:"
-    echo "  Prometheus: http://localhost:9090"
+    echo "  Prometheus: http://localhost:9990"
     echo "  Grafana:    http://localhost:3000"
     echo ""
     echo "Target yang discrape: ${target_ip}:9100"
@@ -167,7 +167,7 @@ run_monitoring_tests() {
     local target_ip="$1"
     local failures=0
 
-    if curl -fsS http://localhost:9090/-/healthy >/dev/null; then
+    if curl -fsS http://localhost:9990/-/healthy >/dev/null; then
         log_success "Test Prometheus health: OK"
     else
         log_error "Test Prometheus health: FAILED"
@@ -181,7 +181,7 @@ run_monitoring_tests() {
         failures=$((failures + 1))
     fi
 
-    if curl -fsS http://localhost:9090/api/v1/targets | grep -q "${target_ip}:9100"; then
+    if curl -fsS http://localhost:9990/api/v1/targets | grep -q "${target_ip}:9100"; then
         log_success "Test scrape target ${target_ip}:9100: OK"
     else
         log_error "Test scrape target ${target_ip}:9100: FAILED"

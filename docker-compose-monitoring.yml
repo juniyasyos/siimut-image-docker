@@ -8,7 +8,7 @@
 #   docker-compose -f docker-compose-monitoring.yml up -d
 #
 # Exposed ports:
-#   9090 - Prometheus web UI
+#   9990 - Prometheus web UI
 #   3000 - Grafana web UI (default admin/admin)
 #
 # Initial Setup:
@@ -19,7 +19,7 @@
 #
 # Configuration:
 #   - Edit prometheus.yml to add/remove scrape targets
-#   - Prometheus config reloading: curl -X POST http://localhost:9090/-/reload
+#   - Prometheus config reloading: curl -X POST http://localhost:9990/-/reload
 #
 ####################################################################################################
 
@@ -33,7 +33,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "9090:9090"
+      - "9990:9090"
     volumes:
       # Prometheus configuration
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro

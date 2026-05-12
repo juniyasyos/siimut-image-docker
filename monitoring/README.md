@@ -126,7 +126,7 @@ Uncomment di `grafana/provisioning/dashboards/dashboards.yml` untuk auto-import 
 ./monitoring-helper.sh health-check
 
 # 4. Access
-# Prometheus: http://localhost:9090
+# Prometheus: http://localhost:9990
 # Grafana:    http://localhost:3000
 ```
 
@@ -168,7 +168,7 @@ Tanpa restart services:
 ./monitoring-helper.sh configure
 
 # Method 2: Manual curl
-curl -X POST http://localhost:9090/-/reload
+curl -X POST http://localhost:9990/-/reload
 
 # Method 3: Via docker-compose
 docker-compose -f docker-compose-monitoring.yml restart prometheus
@@ -186,7 +186,7 @@ docker-compose -f docker-compose-monitoring.yml exec prometheus \
   promtool check rules /etc/prometheus/alerts.yml
 
 # View active scrape targets
-curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets'
+curl http://localhost:9990/api/v1/targets | jq '.data.activeTargets'
 ```
 
 ## 📚 Reference
@@ -201,4 +201,4 @@ curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets'
 1. **Backup before changes**: `./monitoring-helper.sh backup`
 2. **Check logs**: `./monitoring-helper.sh logs prometheus`
 3. **Monitor changes**: `docker-compose -f docker-compose-monitoring.yml logs -f`
-4. **Test PromQL**: Use Prometheus web UI (http://localhost:9090/graph)
+4. **Test PromQL**: Use Prometheus web UI (http://localhost:9990/graph)

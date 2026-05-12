@@ -91,7 +91,7 @@ cmd_start() {
     log_success "Monitoring stack started!"
     echo ""
     echo "Access points:"
-    echo "  Prometheus: http://localhost:9090"
+    echo "  Prometheus: http://localhost:9990"
     echo "  Grafana:    http://localhost:3000 (admin/admin)"
 }
 
@@ -152,7 +152,7 @@ cmd_configure() {
     # Reload prometheus if running
     if docker-compose -f "$COMPOSE_MON" ps prometheus | grep -q "Up"; then
         log_info "Reloading Prometheus config..."
-        curl -X POST http://localhost:9090/-/reload 2>/dev/null || log_warn "Failed to reload (Prometheus may not be running)"
+        curl -X POST http://localhost:9990/-/reload 2>/dev/null || log_warn "Failed to reload (Prometheus may not be running)"
         log_success "Config reloaded!"
     fi
 }
@@ -243,7 +243,7 @@ cmd_health_check() {
     echo ""
     
     # Check Prometheus
-    if curl -s http://localhost:9090/-/healthy > /dev/null; then
+    if curl -s http://localhost:9990/-/healthy > /dev/null; then
         log_success "Prometheus: OK"
     else
         log_error "Prometheus: NOT RESPONDING"
@@ -258,7 +258,7 @@ cmd_health_check() {
     
     # Check scrape targets
     log_info "Scrape targets:"
-    curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, instance: .labels.instance, state: .health}' 2>/dev/null || log_warn "Could not fetch targets"
+    curl -s http://localhost:9990/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, instance: .labels.instance, state: .health}' 2>/dev/null || log_warn "Could not fetch targets"
     
     echo ""
     log_info "Health check completed!"

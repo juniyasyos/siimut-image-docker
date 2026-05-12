@@ -8,7 +8,7 @@ Dokumentasi lengkap untuk setup monitoring infrastructure menggunakan Prometheus
 Production Server (siimut-docker)          Monitoring Server
 ┌─────────────────────────────┐            ┌──────────────────────────┐
 │ docker-compose-multi-apps   │            │ docker-compose-monitoring│
-│ - SIIMUT App                │            │ - Prometheus (9090)      │
+│ - SIIMUT App                │            │ - Prometheus (9990)      │
 │ - IKP App                   │──scrape─→   │ - Grafana (3000)         │
 │ - IAM App                   │  targets   │ - AlertManager (opt)     │
 │                             │            │                          │
@@ -54,14 +54,14 @@ nano monitoring/prometheus.yml
 docker-compose -f docker-compose-monitoring.yml up -d
 
 # Verify
-curl http://localhost:9090/api/v1/targets
+curl http://localhost:9990/api/v1/targets
 curl http://localhost:3000/api/health
 ```
 
 ### 3. Access Web UI
 
 ```
-Prometheus:  http://localhost:9090
+Prometheus:  http://localhost:9990
 Grafana:     http://localhost:3000
 ```
 
@@ -226,7 +226,7 @@ Setup Caddy/Nginx reverse proxy dengan authentication:
 location /prometheus {
     auth_basic "Restricted Access";
     auth_basic_user_file /etc/nginx/.htpasswd;
-    proxy_pass http://localhost:9090;
+    proxy_pass http://localhost:9990;
 }
 ```
 
@@ -269,7 +269,7 @@ Node Exporter metrics: ~1-2 MB per day
 ### Check Scrape Targets
 
 ```bash
-curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets'
+curl http://localhost:9990/api/v1/targets | jq '.data.activeTargets'
 ```
 
 ### View Prometheus Logs
@@ -281,7 +281,7 @@ docker-compose -f docker-compose-monitoring.yml logs -f prometheus
 ### Test Metric Queries
 
 ```bash
-# Open http://localhost:9090/graph
+# Open http://localhost:9990/graph
 # Query examples:
 up                                    # All targets status
 node_cpu_seconds_total               # CPU metrics
@@ -292,7 +292,7 @@ rate(node_network_receive_bytes_total[5m])  # Network traffic
 ### Reload Prometheus Config
 
 ```bash
-curl -X POST http://localhost:9090/-/reload
+curl -X POST http://localhost:9990/-/reload
 ```
 
 ---

@@ -90,9 +90,9 @@ update_prometheus_target() {
     local backup_file="${PROMETHEUS_CONFIG}.backup.${BACKUP_SUFFIX}"
 
     cp "$PROMETHEUS_CONFIG" "$backup_file"
-    perl -0pi -e "s/targets: \['<PROD_SERVER_IP>:9100'\]/targets: ['${target_ip}:9100']/g" "$PROMETHEUS_CONFIG"
+    sed -i "/job_name: 'node-exporter-prod'/,/relabel_configs:/ s|targets: \['[^']*:9100'\]|targets: ['${target_ip}:9100']|" "$PROMETHEUS_CONFIG"
 
-    if grep -q '<PROD_SERVER_IP>' "$PROMETHEUS_CONFIG"; then
+    if grep -Eq "^[[:space:]]*-[[:space:]]*targets:[[:space:]]*\['<PROD_SERVER_IP>:[0-9]+'\]" "$PROMETHEUS_CONFIG"; then
         log_warn "Masih ada placeholder <PROD_SERVER_IP> di prometheus.yml. Cek file hasil edit."
     fi
 
@@ -167,21 +167,21 @@ run_monitoring_tests() {
     local target_ip="$1"
     local failures=0
 
-    if curl -fsS http://localhost:9990/-/healthy >/dev/null; then
+    if wait_for_http "http://localhost:9990/-/healthy" 30 2; then
         log_success "Test Prometheus health: OK"
     else
         log_error "Test Prometheus health: FAILED"
         failures=$((failures + 1))
     fi
 
-    if curl -fsS http://localhost:3000/api/health >/dev/null; then
+    if wait_for_http "http://localhost:3000/api/health" 45 2; then
         log_success "Test Grafana health: OK"
     else
         log_error "Test Grafana health: FAILED"
         failures=$((failures + 1))
     fi
 
-    if curl -fsS http://localhost:9990/api/v1/targets | grep -q "${target_ip}:9100"; then
+    if wait_for_scrape_target "$target_ip" 30 2; then
         log_success "Test scrape target ${target_ip}:9100: OK"
     else
         log_error "Test scrape target ${target_ip}:9100: FAILED"
@@ -197,7 +197,7 @@ run_monitoring_tests() {
 run_target_server_tests() {
     local failures=0
 
-    if curl -fsS http://localhost:9100/metrics >/dev/null; then
+    if wait_for_http "http://localhost:9100/metrics" 20 2; then
         log_success "Test node exporter metrics endpoint: OK"
     else
         log_error "Test node exporter metrics endpoint: FAILED"
@@ -208,6 +208,38 @@ run_target_server_tests() {
         log_error "Target server setup test gagal (${failures} pemeriksaan gagal)"
         exit 1
     fi
+}
+
+wait_for_http() {
+    local url="$1"
+    local attempts="${2:-20}"
+    local delay_seconds="${3:-2}"
+    local i
+
+    for ((i = 1; i <= attempts; i++)); do
+        if curl -fsS "$url" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep "$delay_seconds"
+    done
+
+    return 1
+}
+
+wait_for_scrape_target() {
+    local target_ip="$1"
+    local attempts="${2:-20}"
+    local delay_seconds="${3:-2}"
+    local i
+
+    for ((i = 1; i <= attempts; i++)); do
+        if curl -fsS http://localhost:9990/api/v1/targets 2>/dev/null | grep -q "${target_ip}:9100"; then
+            return 0
+        fi
+        sleep "$delay_seconds"
+    done
+
+    return 1
 }
 
 main() {

@@ -39,7 +39,7 @@ Automasi tambahan:
 Contoh pemakaian:
 
 ```bash
-bash setup-monitoring.sh monitoring 192.168.1.4
+bash setup-monitoring.sh monitoring 192.168.1.9
 ```
 
 ### 1. Production Server - Deploy Node Exporter

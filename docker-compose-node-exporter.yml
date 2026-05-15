@@ -59,6 +59,33 @@ services:
           - node-exporter
 
   ####################################################################################################
+  # Nginx Prometheus Exporter
+  # Scrapes Nginx stub_status from the production server
+  ####################################################################################################
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    ports:
+      - "9113:9113"
+    command:
+      - "-nginx.scrape-uri=http://192.168.1.4:8000/nginx_status"
+    restart: unless-stopped
+    depends_on:
+      - node-exporter
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+          cpus: "0.05"
+        reservations:
+          memory: 16M
+          cpus: "0.02"
+    networks:
+      default:
+        aliases:
+          - nginx-exporter
+
+  ####################################################################################################
   # Optional: PHP-FPM Exporter (untuk monitoring PHP-FPM pools)
   # Uncomment jika ingin monitor PHP-FPM metrics
   ####################################################################################################

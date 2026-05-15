@@ -9,6 +9,7 @@ PROMETHEUS_CONFIG="$SCRIPT_DIR/monitoring/prometheus.yml"
 BACKUP_SUFFIX="$(date +%Y%m%d_%H%M%S)"
 DEFAULT_NODE_EXPORTER_IP="192.168.1.4"
 NODE_EXPORTER_PORT="9100"
+NGINX_EXPORTER_PORT="9113"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -41,6 +42,7 @@ Usage:
 Examples:
   ./setup-monitoring.sh monitoring 192.168.1.100
     ./setup-monitoring.sh monitoring
+    ./setup-monitoring.sh target-server 192.168.1.9
   ./setup-monitoring.sh target-server 192.168.1.200
 
 Roles:
@@ -48,6 +50,7 @@ Roles:
   target-server  Start Node Exporter on the production/target server.
 
 Default target server IP untuk monitoring adalah 192.168.1.4.
+Target server IP untuk firewall rule exporter biasanya monitoring server, misalnya 192.168.1.9.
 EOF
 }
 
@@ -158,6 +161,8 @@ setup_target_server() {
         if sudo ufw status >/dev/null 2>&1; then
             log_info "Membuka port 9100 hanya untuk ${monitoring_ip} via ufw..."
             sudo ufw allow from "$monitoring_ip" to any port 9100 proto tcp || true
+            log_info "Membuka port 9113 hanya untuk ${monitoring_ip} via ufw..."
+            sudo ufw allow from "$monitoring_ip" to any port 9113 proto tcp || true
         else
             log_warn "ufw terpasang tetapi tidak aktif, lewati konfigurasi firewall"
         fi
@@ -237,6 +242,13 @@ run_target_server_tests() {
         log_success "Test node exporter metrics endpoint: OK"
     else
         log_error "Test node exporter metrics endpoint: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if wait_for_http "http://localhost:${NGINX_EXPORTER_PORT}/metrics" 20 2; then
+        log_success "Test nginx exporter metrics endpoint: OK"
+    else
+        log_error "Test nginx exporter metrics endpoint: FAILED"
         failures=$((failures + 1))
     fi
 

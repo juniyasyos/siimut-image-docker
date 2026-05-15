@@ -68,10 +68,17 @@ services:
     ports:
       - "9113:9113"
     command:
-      - "-nginx.scrape-uri=http://192.168.1.4:8000/nginx_status"
+      - "-nginx.scrape-uri=http://web:8000/nginx_status"
     restart: unless-stopped
     depends_on:
       - node-exporter
+    networks:
+      default:
+        aliases:
+          - nginx-exporter
+      rsch-srv_default:
+        aliases:
+          - nginx-exporter
     deploy:
       resources:
         limits:
@@ -80,10 +87,6 @@ services:
         reservations:
           memory: 16M
           cpus: "0.02"
-    networks:
-      default:
-        aliases:
-          - nginx-exporter
 
   ####################################################################################################
   # Optional: PHP-FPM Exporter (untuk monitoring PHP-FPM pools)
@@ -108,3 +111,6 @@ networks:
   default:
     name: node-exporter-network
     driver: bridge
+
+  rsch-srv_default:
+    external: true

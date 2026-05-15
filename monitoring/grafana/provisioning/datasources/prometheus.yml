@@ -20,6 +20,7 @@ providers:
 
 datasources:
   - name: Prometheus
+    uid: 5BOgatKnk
     type: prometheus
     access: proxy
     url: http://prometheus:9090

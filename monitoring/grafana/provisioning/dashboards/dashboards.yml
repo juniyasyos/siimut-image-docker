@@ -15,28 +15,15 @@ apiVersion: 1
 providers:
   - name: 'Provisioned dashboards'
     orgId: 1
-    folder: 'Dashboards'
+    folder: 'Monitoring'
     type: file
-    disableDeletion: false
-    updateIntervalSeconds: 60
-    allowUiUpdates: true
+    disableDeletion: true
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
     options:
       path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
 
-# Dashboard definitions (uncomment untuk enable auto-load)
-dashboards: {}
-  # node-exporter:
-  #   url: https://grafana.com/api/dashboards/1860/revisions/21/download
-  #   refreshInterval: 60s
-
-# Alternative: Reference local dashboard files
-# dashboards:
-#   node-exporter:
-#     gnetId: 1860
-#     revision: 21
-#     datasource: Prometheus
-#
-#   prometheus-stats:
-#     gnetId: 3662
-#     revision: 2
-#     datasource: Prometheus
+# Dashboard JSON files in this folder are provisioned automatically:
+# - node-exporter-basic.json -> Node Exporter Full
+# - nginx.json -> Monitoring Nginx Service

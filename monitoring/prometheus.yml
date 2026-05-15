@@ -67,7 +67,29 @@ scrape_configs:
     scrape_timeout: 10s
 
   ####################################################################################################
-  # 3. Docker Stats (optional - jika pakai cadvisor)
+  # 3. SNMP Exporter - Mikrotik Devices
+  #
+  # Prometheus scrapes the exporter, and the exporter polls the Mikrotik IPs over SNMP.
+  # Default auth uses public_v2 and the built-in mikrotik module from snmp_exporter.
+  ####################################################################################################
+  - job_name: 'snmp-mikrotik'
+    metrics_path: /snmp
+    params:
+      auth: [public_v2]
+      module: [mikrotik]
+    static_configs:
+      - targets: ['192.168.1.1']
+      - targets: ['192.168.1.100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: snmp-exporter:9116
+
+  ####################################################################################################
+  # 4. Docker Stats (optional - jika pakai cadvisor)
   # Uncomment dan deploy cadvisor untuk collect Docker container metrics
   ####################################################################################################
   # - job_name: 'cadvisor'
@@ -79,7 +101,7 @@ scrape_configs:
   #       replacement: 'docker-containers'
 
   ####################################################################################################
-  # 4. Laravel Application Metrics (jika pakai APM exporter)
+  # 5. Laravel Application Metrics (jika pakai APM exporter)
   # Uncomment jika ada custom exporter untuk app metrics
   ####################################################################################################
   # - job_name: 'laravel-siimut'
@@ -107,7 +129,7 @@ scrape_configs:
   #       replacement: 'iam-app'
 
   ####################################################################################################
-  # 5. Database Metrics (MySQL/PostgreSQL exporter)
+  # 6. Database Metrics (MySQL/PostgreSQL exporter)
   # Uncomment jika monitoring database
   ####################################################################################################
   # - job_name: 'mysql-exporter'
@@ -127,7 +149,7 @@ scrape_configs:
   #       replacement: 'database-postgres'
 
   ####################################################################################################
-  # 6. Nginx Metrics (nginx-prometheus-exporter)
+  # 7. Nginx Metrics (nginx-prometheus-exporter)
   # Uncomment jika monitoring nginx
   ####################################################################################################
   # - job_name: 'nginx-exporter'
@@ -139,7 +161,7 @@ scrape_configs:
   #       replacement: 'nginx-web'
 
   ####################################################################################################
-  # 7. Redis Metrics (redis-exporter)
+  # 8. Redis Metrics (redis-exporter)
   # Uncomment jika monitoring Redis
   ####################################################################################################
   # - job_name: 'redis-exporter'

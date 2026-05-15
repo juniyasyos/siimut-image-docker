@@ -1,3 +1,6 @@
+done
+elif [ "$OWNER" = "snmp_exporter" ]; then
+elif [ $FAIL -ge 3 ]; then
 #!/bin/bash
 
 set +e
@@ -13,201 +16,140 @@ FAIL=0
 WARN=0
 
 NETWORK="monitoring-network"
-PROM="prometheus"
-SNMP="snmp-exporter"
-PORT=9116
-PROM_PORT=9990
+PROM_CONTAINER="prometheus"
+SNMP_CONTAINER="snmp-exporter"
+PROM_API_PORT=9990
+SNMP_PORT=9116
+SNMP_TARGET_IP="192.168.1.1"
+SNMP_MODULE="mikrotik"
+SNMP_AUTH="public_v2"
 
-# =========================
-# Helper
-# =========================
 pass(){ echo -e "${GREEN}✔ $1${NC}"; ((PASS++)); }
 fail(){ echo -e "${RED}✖ $1${NC}"; ((FAIL++)); }
 warn(){ echo -e "${YELLOW}⚠ $1${NC}"; ((WARN++)); }
 section(){ echo -e "\n${BLUE}=== $1 ===${NC}"; }
 
-# =========================
-# Dependency Check
-# =========================
-section "DEPENDENCY CHECK"
+container_running() {
+    docker ps --format '{{.Names}}' | grep -q "^$1$"
+}
 
-for cmd in docker curl ss jq; do
-    command -v $cmd >/dev/null 2>&1 \
-        && pass "$cmd installed" \
-        || fail "$cmd missing"
+container_networks() {
+    docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$1" 2>/dev/null
+}
+
+section "DEPENDENCY CHECK"
+for cmd in docker curl jq; do
+    command -v "$cmd" >/dev/null 2>&1 && pass "$cmd installed" || fail "$cmd missing"
 done
 
-# =========================
-# Network Layer
-# =========================
-section "NETWORK"
+section "STACK STATUS"
+docker network inspect "$NETWORK" >/dev/null 2>&1 && pass "Docker network '$NETWORK' exists" || fail "Docker network '$NETWORK' missing"
 
-docker network inspect $NETWORK >/dev/null 2>&1 \
-    && pass "Docker network OK" \
-    || fail "Docker network missing"
-
-# =========================
-# Container Layer
-# =========================
-section "CONTAINER"
-
-for c in $PROM $SNMP; do
-    if docker ps --format '{{.Names}}' | grep -q "^$c$"; then
+for c in "$PROM_CONTAINER" "$SNMP_CONTAINER"; do
+    if container_running "$c"; then
         pass "$c running"
     else
         fail "$c NOT running"
     fi
 done
 
-# =========================
-# Port Layer (CRITICAL)
-# =========================
-section "PORT ANALYSIS"
+section "NETWORK MEMBERSHIP"
+PROM_NETWORKS=$(container_networks "$PROM_CONTAINER")
+SNMP_NETWORKS=$(container_networks "$SNMP_CONTAINER")
 
-PORT_INFO=$(sudo ss -tulnp | grep ":$PORT")
+echo "prometheus networks: $PROM_NETWORKS"
+echo "snmp-exporter networks: $SNMP_NETWORKS"
 
-if [ -z "$PORT_INFO" ]; then
-    fail "Port $PORT not used"
+echo "$PROM_NETWORKS $SNMP_NETWORKS" | grep -q "$NETWORK" && pass "Both containers attached to $NETWORK" || fail "Containers are not on the same network"
+
+section "HOST PORT CHECK"
+HOST_PORT_LINE=$(ss -tulnp 2>/dev/null | grep ":$SNMP_PORT" | head -n 1)
+if [ -n "$HOST_PORT_LINE" ]; then
+    echo "$HOST_PORT_LINE"
+    pass "Port $SNMP_PORT is listening on host"
 else
-    OWNER=$(echo "$PORT_INFO" | grep -oP 'users:\(\("\K[^"]+')
-    echo "→ $PORT_INFO"
+    warn "Port $SNMP_PORT not exposed on host or ss unavailable"
+fi
 
-    if echo "$PORT_INFO" | grep -q "docker"; then
-        pass "Port owned by docker"
-    elif [ "$OWNER" = "snmp_exporter" ]; then
-        warn "snmp_exporter running on HOST"
+section "PROMETHEUS -> SNMP EXPORTER DNS"
+DNS_OUTPUT=$(docker exec "$PROM_CONTAINER" sh -lc "getent hosts $SNMP_CONTAINER 2>/dev/null || nslookup $SNMP_CONTAINER 2>/dev/null || true")
+if [ -n "$DNS_OUTPUT" ]; then
+    echo "$DNS_OUTPUT"
+    pass "Prometheus container can resolve $SNMP_CONTAINER"
+else
+    warn "Could not prove DNS with getent/nslookup; continuing with HTTP probe"
+fi
+
+section "PROMETHEUS -> SNMP EXPORTER HTTP"
+HTTP_OUTPUT=$(docker exec "$PROM_CONTAINER" sh -lc "wget -qO- http://$SNMP_CONTAINER:$SNMP_PORT/metrics 2>&1 | head -n 5")
+HTTP_STATUS=$?
+if [ $HTTP_STATUS -eq 0 ] && [ -n "$HTTP_OUTPUT" ]; then
+    echo "$HTTP_OUTPUT"
+    pass "Prometheus container can reach http://$SNMP_CONTAINER:$SNMP_PORT/metrics"
+else
+    fail "Prometheus container cannot reach SNMP exporter over HTTP"
+    echo "$HTTP_OUTPUT"
+fi
+
+section "HOST -> SNMP EXPORTER HTTP"
+HOST_METRICS=$(curl -s "http://localhost:$SNMP_PORT/metrics" | head -n 5)
+if [ -n "$HOST_METRICS" ]; then
+    echo "$HOST_METRICS"
+    pass "Host can reach SNMP exporter on localhost:$SNMP_PORT"
+else
+    fail "Host cannot reach SNMP exporter on localhost:$SNMP_PORT"
+fi
+
+section "PROMETHEUS TARGETS"
+TARGETS=$(curl -s "http://localhost:$PROM_API_PORT/api/v1/targets")
+if echo "$TARGETS" | jq -e . >/dev/null 2>&1; then
+    pass "Prometheus API reachable"
+else
+    fail "Prometheus API unreachable"
+fi
+
+SNMP_TARGET=$(echo "$TARGETS" | jq '.data.activeTargets[]? | select(.labels.job == "snmp-mikrotik")' 2>/dev/null)
+if [ -n "$SNMP_TARGET" ]; then
+    echo "$SNMP_TARGET" | jq '{health: .health, scrapeUrl: .scrapeUrl, lastError: .lastError, labels: .labels}' 2>/dev/null
+    echo "$SNMP_TARGET" | jq -e '.health == "up"' >/dev/null 2>&1 && pass "Prometheus reports snmp-mikrotik UP" || fail "Prometheus reports snmp-mikrotik DOWN"
+else
+    fail "snmp-mikrotik target not found in Prometheus"
+fi
+
+section "PROMETHEUS QUERY"
+UP_QUERY=$(curl -s --get --data-urlencode 'query=up{job="snmp-mikrotik"}' "http://localhost:$PROM_API_PORT/api/v1/query")
+if echo "$UP_QUERY" | jq -e '.status == "success"' >/dev/null 2>&1; then
+    echo "$UP_QUERY" | jq '.data.result'
+    if echo "$UP_QUERY" | jq -e '.data.result[]? | select(.value[1] == "1")' >/dev/null 2>&1; then
+        pass "Prometheus query up{job=\"snmp-mikrotik\"} returned 1"
     else
-        warn "Unknown process using port ($OWNER)"
+        fail "Prometheus query up{job=\"snmp-mikrotik\"} did not return 1"
     fi
-fi
-
-# =========================
-# Process Deep Inspect
-# =========================
-section "PROCESS INSPECT"
-
-PID=$(echo "$PORT_INFO" | grep -oP 'pid=\K[0-9]+')
-
-if [ -n "$PID" ]; then
-    ps -fp $PID
-    readlink -f /proc/$PID/exe
-    pass "Process inspected"
 else
-    warn "No PID found"
+    fail "Prometheus query failed"
 fi
 
-# =========================
-# Docker Binding
-# =========================
-section "DOCKER PORT BIND"
-
-docker ps | grep -q "$PORT" \
-    && pass "Docker expose port $PORT" \
-    || fail "Docker NOT exposing $PORT"
-
-# =========================
-# DNS Resolution
-# =========================
-section "DNS TEST (PROM → SNMP)"
-
-docker exec $PROM getent hosts $SNMP >/dev/null 2>&1 \
-    && pass "DNS resolve OK" \
-    || fail "DNS resolve FAIL"
-
-# =========================
-# Network Connectivity
-# =========================
-section "NETWORK CONNECTIVITY"
-
-docker exec $PROM ping -c1 $SNMP >/dev/null 2>&1 \
-    && pass "Ping OK" \
-    || fail "Ping FAIL"
-
-# =========================
-# HTTP Layer
-# =========================
-section "HTTP CHECK"
-
-LATENCY=$(curl -o /dev/null -s -w '%{time_total}' http://localhost:$PORT/metrics)
-
-if [ $? -eq 0 ]; then
-    pass "HTTP OK (${LATENCY}s)"
+section "SNMP END-TO-END (OPTIONAL DEVICE PROBE)"
+DEVICE_PROBE=$(docker exec "$SNMP_CONTAINER" sh -lc "wget -qO- 'http://localhost:$SNMP_PORT/snmp?target=$SNMP_TARGET_IP&module=$SNMP_MODULE&auth=$SNMP_AUTH' 2>&1 | head -n 5")
+if [ -n "$DEVICE_PROBE" ]; then
+    echo "$DEVICE_PROBE"
+    pass "SNMP exporter accepted probe for $SNMP_TARGET_IP"
 else
-    fail "HTTP FAIL"
+    warn "Device probe returned no output; this can still be OK if the exporter waits for device response"
 fi
 
-# =========================
-# Prometheus API
-# =========================
-section "PROMETHEUS API"
-
-TARGET=$(curl -s http://localhost:$PROM_PORT/api/v1/targets)
-
-if echo "$TARGET" | jq -e . >/dev/null 2>&1; then
-    pass "Prom API reachable"
-else
-    fail "Prom API broken"
-fi
-
-# =========================
-# Metrics Validation
-# =========================
-section "METRICS VALIDATION"
-
-echo "$TARGET" | grep -q '"health":"up"' \
-    && pass "Targets UP" \
-    || fail "Targets DOWN"
-
-# =========================
-# Conflict Detection
-# =========================
-section "CONFLICT DETECTION"
-
-if [ "$OWNER" = "snmp_exporter" ] && docker ps | grep -q "$SNMP"; then
-    fail "DOUBLE INSTANCE (host + docker)"
-elif [ "$OWNER" = "snmp_exporter" ]; then
-    warn "Running outside docker"
-fi
-
-# =========================
-# SUMMARY
-# =========================
 section "SUMMARY"
-
-TOTAL=$((PASS+FAIL+WARN))
-
 echo -e "✔ PASS : $PASS"
 echo -e "✖ FAIL : $FAIL"
 echo -e "⚠ WARN : $WARN"
-echo -e "TOTAL  : $TOTAL"
 
-# =========================
-# ROOT CAUSE ENGINE
-# =========================
-section "AUTO DIAGNOSIS"
-
-if [ $FAIL -eq 0 ] && [ $WARN -eq 0 ]; then
-    echo -e "${GREEN}System NORMAL${NC}"
-
-elif [ "$OWNER" = "snmp_exporter" ]; then
-    echo -e "${YELLOW}ROOT CAUSE:${NC}"
-    echo "Host-based SNMP exporter (bukan Docker)"
-    echo "→ menyebabkan port conflict & monitoring ambiguity"
-
-    echo -e "\nFIX:"
-    echo "sudo kill -9 $PID"
-
-elif [ $FAIL -ge 3 ]; then
-    echo -e "${RED}ROOT CAUSE:${NC}"
-    echo "Broken monitoring stack (network/DNS/container)"
-
-    echo -e "\nFIX:"
-    echo "docker compose down -v"
-    echo "docker network rm $NETWORK"
-    echo "docker compose up -d"
-
+section "CONCLUSION"
+if [ $FAIL -eq 0 ]; then
+    echo -e "${GREEN}Prometheus can communicate with snmp-exporter.${NC}"
+elif [ "$PASS" -gt 0 ] && [ "$FAIL" -le 2 ]; then
+    echo -e "${YELLOW}Communication is partially working, but there is still a target/query issue.${NC}"
 else
-    echo -e "${YELLOW}Minor issues detected${NC}"
+    echo -e "${RED}Prometheus cannot communicate with snmp-exporter yet.${NC}"
 fi
 
-echo -e "\nDone.\n"
+echo

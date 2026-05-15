@@ -7,6 +7,8 @@ COMPOSE_MONITORING="$SCRIPT_DIR/docker-compose-monitoring.yml"
 COMPOSE_NODE_EXPORTER="$SCRIPT_DIR/docker-compose-node-exporter.yml"
 PROMETHEUS_CONFIG="$SCRIPT_DIR/monitoring/prometheus.yml"
 BACKUP_SUFFIX="$(date +%Y%m%d_%H%M%S)"
+DEFAULT_NODE_EXPORTER_IP="192.168.1.4"
+NODE_EXPORTER_PORT="9100"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -33,16 +35,19 @@ log_error() {
 show_help() {
     cat <<'EOF'
 Usage:
-  ./setup-monitoring.sh monitoring <target-server-ip>
+    ./setup-monitoring.sh monitoring [target-server-ip]
   ./setup-monitoring.sh target-server <monitoring-server-ip>
 
 Examples:
   ./setup-monitoring.sh monitoring 192.168.1.100
+    ./setup-monitoring.sh monitoring
   ./setup-monitoring.sh target-server 192.168.1.200
 
 Roles:
   monitoring     Update Prometheus target IP and start Prometheus + Grafana.
   target-server  Start Node Exporter on the production/target server.
+
+Default target server IP untuk monitoring adalah 192.168.1.4.
 EOF
 }
 
@@ -175,6 +180,7 @@ setup_target_server() {
 run_monitoring_tests() {
     local target_ip="$1"
     local failures=0
+    local node_exporter_url="http://${target_ip}:${NODE_EXPORTER_PORT}/metrics"
 
     if wait_for_http "http://localhost:9990/-/healthy" 30 2; then
         log_success "Test Prometheus health: OK"
@@ -194,6 +200,13 @@ run_monitoring_tests() {
         log_success "Test scrape target ${target_ip}:9100: OK"
     else
         log_error "Test scrape target ${target_ip}:9100: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if wait_for_http "$node_exporter_url" 30 2; then
+        log_success "Test node exporter metrics endpoint ${target_ip}:9100: OK"
+    else
+        log_error "Test node exporter metrics endpoint ${target_ip}:9100: FAILED"
         failures=$((failures + 1))
     fi
 
@@ -266,11 +279,6 @@ main() {
         exit 0
     fi
 
-    if [[ -z "$ip" ]]; then
-        show_help
-        exit 1
-    fi
-
     if ! compose_cmd="$(detect_compose_cmd)"; then
         log_error "Docker Compose tidak ditemukan. Install Docker Compose terlebih dahulu."
         exit 1
@@ -278,9 +286,14 @@ main() {
 
     case "$role" in
         monitoring)
+            ip="${ip:-$DEFAULT_NODE_EXPORTER_IP}"
             setup_monitoring_server "$ip" "$compose_cmd"
             ;;
         target-server|target|production)
+            if [[ -z "$ip" ]]; then
+                show_help
+                exit 1
+            fi
             setup_target_server "$ip" "$compose_cmd"
             ;;
         *)

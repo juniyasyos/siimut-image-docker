@@ -1205,7 +1205,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "nginx_accepts{instance=~\"$instance*\"}",
+          "expr": "nginx_connections_accepted{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{ instance }}",
           "refId": "A"
@@ -1301,7 +1301,7 @@
       "pluginVersion": "7.0.1",
       "targets": [
         {
-          "expr": "nginx_writing{instance=~\"$instance*\"}\t",
+          "expr": "nginx_connections_writing{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{ host }}",
           "refId": "A"
@@ -1309,7 +1309,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Nginx Writing",
+      "title": "Nginx Connections Writing",
       "type": "stat"
     },
     {
@@ -1358,7 +1358,7 @@
       "pluginVersion": "7.0.1",
       "targets": [
         {
-          "expr": "nginx_active{instance=~\"$instance*\"}\t",
+          "expr": "nginx_connections_active{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{instance }}",
           "refId": "A"
@@ -1366,7 +1366,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Nginx Active Connections[accepted]",
+      "title": "Nginx Connections Active",
       "type": "bargauge"
     },
     {
@@ -1414,7 +1414,7 @@
       "pluginVersion": "7.0.1",
       "targets": [
         {
-          "expr": "nginx_waiting{instance=~\"$instance*\"}\t",
+          "expr": "nginx_connections_waiting{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{ instance}}",
           "refId": "A"
@@ -1422,7 +1422,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Nginx Waiting Connections",
+      "title": "Nginx Connections Waiting",
       "type": "stat"
     },
     {
@@ -1492,7 +1492,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "nginx_handled{instance=~\"$instance*\"}\t",
+          "expr": "nginx_connections_handled{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{ instance }}",
           "refId": "A"
@@ -1502,7 +1502,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Handled Request",
+      "title": "Nginx Connections Handled",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1544,7 +1544,7 @@
     {
       "aliasColors": {
         "172.31.0.131:9273": "rgb(250, 0, 225)",
-        "{__name__=\"nginx_requests\", env=\"prod\", exported_env=\"DEV\", instance=\"172.31.0.131:9273\", job=\"telegraf\", port=\"80\", server=\"localhost\"}": "orange"
+        "{__name__=\"nginx_up\", instance=\"192.168.1.4:9113\", job=\"nginx-exporter\"}": "orange"
       },
       "bars": false,
       "dashLength": 10,
@@ -1612,7 +1612,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "nginx_requests{instance=~\"$instance*\"}\t",
+          "expr": "nginx_up{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{ instance }}",
           "refId": "A"
@@ -1622,7 +1622,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Nginx Requests",
+      "title": "Nginx Up",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1706,7 +1706,7 @@
       "pluginVersion": "7.0.1",
       "targets": [
         {
-          "expr": "nginx_reading{instance=~\"$instance*\"}",
+          "expr": "nginx_connections_reading{instance=~\"$instance*\"}",
           "interval": "",
           "legendFormat": "{{ host }}",
           "refId": "A"
@@ -1714,7 +1714,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "nginx_reading",
+      "title": "Nginx Connections Reading",
       "type": "stat"
     },
     {

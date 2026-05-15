@@ -215,10 +215,17 @@ run_monitoring_tests() {
         failures=$((failures + 1))
     fi
 
-    if wait_for_prometheus_query 'nginx_requests' 30 2; then
-        log_success "Test scraping data nginx_requests: OK"
+    if wait_for_prometheus_query 'nginx_up' 30 2; then
+        log_success "Test scraping data nginx_up: OK"
     else
-        log_error "Test scraping data nginx_requests: FAILED"
+        log_error "Test scraping data nginx_up: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if wait_for_prometheus_query 'nginx_connections_active' 30 2; then
+        log_success "Test scraping data nginx_connections_active: OK"
+    else
+        log_error "Test scraping data nginx_connections_active: FAILED"
         failures=$((failures + 1))
     fi
 

@@ -35,5 +35,5 @@ services:
 ####################################################################################################
 networks:
   monitoring-network:
+    external: true
     name: monitoring-network
-    driver: bridge

@@ -1,6 +1,3 @@
-done
-elif [ "$OWNER" = "snmp_exporter" ]; then
-elif [ $FAIL -ge 3 ]; then
 #!/bin/bash
 
 set +e

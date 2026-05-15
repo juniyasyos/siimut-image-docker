@@ -1953,6 +1953,24 @@
           "text": "prometheus.internal-odmont.com",
           "value": "prometheus.internal-odmont.com"
         },
+        "hide": 2,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS.INTERNAL-ODMONT.COM",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "prometheus.internal-odmont.com",
+          "value": "prometheus.internal-odmont.com"
+        },
         "hide": 1,
         "includeAll": false,
         "label": "Datasource",

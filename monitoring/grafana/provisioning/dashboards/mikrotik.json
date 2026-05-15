@@ -91,7 +91,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "5BOgatKnk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "h": 1,
@@ -105,7 +105,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "5BOgatKnk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A"
         }
@@ -2384,7 +2384,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "5BOgatKnk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "h": 1,
@@ -2398,7 +2398,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "5BOgatKnk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A"
         }
@@ -2746,7 +2746,7 @@
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "5BOgatKnk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "h": 1,
@@ -4469,7 +4469,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "5BOgatKnk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A"
         }
@@ -4481,7 +4481,7 @@
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "5BOgatKnk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "h": 1,
@@ -4851,7 +4851,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "5BOgatKnk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A"
         }

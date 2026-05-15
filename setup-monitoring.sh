@@ -210,6 +210,20 @@ run_monitoring_tests() {
         failures=$((failures + 1))
     fi
 
+    if wait_for_prometheus_query 'nginx_requests' 30 2; then
+        log_success "Test scraping data nginx_requests: OK"
+    else
+        log_error "Test scraping data nginx_requests: FAILED"
+        failures=$((failures + 1))
+    fi
+
+    if wait_for_prometheus_query 'hrSystemUptime' 30 2; then
+        log_success "Test scraping data Mikrotik hrSystemUptime: OK"
+    else
+        log_error "Test scraping data Mikrotik hrSystemUptime: FAILED"
+        failures=$((failures + 1))
+    fi
+
     if [[ "$failures" -gt 0 ]]; then
         log_error "Monitoring setup test gagal (${failures} pemeriksaan gagal)"
         exit 1
@@ -256,6 +270,22 @@ wait_for_scrape_target() {
 
     for ((i = 1; i <= attempts; i++)); do
         if curl -fsS http://localhost:9990/api/v1/targets 2>/dev/null | grep -q "${target_ip}:9100"; then
+            return 0
+        fi
+        sleep "$delay_seconds"
+    done
+
+    return 1
+}
+
+wait_for_prometheus_query() {
+    local metric_name="$1"
+    local attempts="${2:-20}"
+    local delay_seconds="${3:-2}"
+    local i
+
+    for ((i = 1; i <= attempts; i++)); do
+        if curl -fsS "http://localhost:9990/api/v1/query?query=${metric_name}" 2>/dev/null | grep -Eq '"result"[[:space:]]*:[[:space:]]*\[[[:space:]]*\{' ; then
             return 0
         fi
         sleep "$delay_seconds"

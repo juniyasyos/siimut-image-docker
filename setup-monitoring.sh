@@ -229,10 +229,10 @@ run_monitoring_tests() {
         failures=$((failures + 1))
     fi
 
-    if wait_for_prometheus_query 'hrSystemUptime' 30 2; then
-        log_success "Test scraping data Mikrotik hrSystemUptime: OK"
+    if wait_for_prometheus_query 'up{job="snmp-mikrotik"}' 30 2; then
+        log_success "Test scraping data Mikrotik snmp-mikrotik up: OK"
     else
-        log_error "Test scraping data Mikrotik hrSystemUptime: FAILED"
+        log_error "Test scraping data Mikrotik snmp-mikrotik up: FAILED"
         failures=$((failures + 1))
     fi
 
@@ -298,13 +298,13 @@ wait_for_scrape_target() {
 }
 
 wait_for_prometheus_query() {
-    local metric_name="$1"
+    local query_expr="$1"
     local attempts="${2:-20}"
     local delay_seconds="${3:-2}"
     local i
 
     for ((i = 1; i <= attempts; i++)); do
-        if curl -fsS "http://localhost:9990/api/v1/query?query=${metric_name}" 2>/dev/null | grep -Eq '"result"[[:space:]]*:[[:space:]]*\[[[:space:]]*\{' ; then
+        if curl -fsS --get --data-urlencode "query=${query_expr}" "http://localhost:9990/api/v1/query" 2>/dev/null | grep -Eq '"result"[[:space:]]*:[[:space:]]*\[[[:space:]]*\{' ; then
             return 0
         fi
         sleep "$delay_seconds"

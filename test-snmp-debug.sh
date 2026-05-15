@@ -35,29 +35,50 @@ container_networks() {
 }
 
 section "DEPENDENCY CHECK"
-for cmd in docker curl jq; do
+for cmd in curl jq; do
     command -v "$cmd" >/dev/null 2>&1 && pass "$cmd installed" || fail "$cmd missing"
 done
 
-section "STACK STATUS"
-docker network inspect "$NETWORK" >/dev/null 2>&1 && pass "Docker network '$NETWORK' exists" || fail "Docker network '$NETWORK' missing"
+if command -v docker >/dev/null 2>&1; then
+    pass "docker installed"
+    DOCKER_AVAILABLE=1
+else
+    warn "docker missing; Docker-based tests will be skipped"
+    DOCKER_AVAILABLE=0
+fi
 
-for c in "$PROM_CONTAINER" "$SNMP_CONTAINER"; do
-    if container_running "$c"; then
-        pass "$c running"
-    else
-        fail "$c NOT running"
-    fi
+section "STACK STATUS"
+if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
+    docker network inspect "$NETWORK" >/dev/null 2>&1 && pass "Docker network '$NETWORK' exists" || fail "Docker network '$NETWORK' missing"
+else
+    warn "Skipping network check because docker is unavailable"
+fi
+
 done
+if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
+    for c in "$PROM_CONTAINER" "$SNMP_CONTAINER"; do
+        if container_running "$c"; then
+            pass "$c running"
+        else
+            fail "$c NOT running"
+        fi
+    done
+else
+    warn "Skipping container status checks because docker is unavailable"
+fi
 
 section "NETWORK MEMBERSHIP"
-PROM_NETWORKS=$(container_networks "$PROM_CONTAINER")
-SNMP_NETWORKS=$(container_networks "$SNMP_CONTAINER")
+if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
+    PROM_NETWORKS=$(container_networks "$PROM_CONTAINER")
+    SNMP_NETWORKS=$(container_networks "$SNMP_CONTAINER")
 
-echo "prometheus networks: $PROM_NETWORKS"
-echo "snmp-exporter networks: $SNMP_NETWORKS"
+    echo "prometheus networks: $PROM_NETWORKS"
+    echo "snmp-exporter networks: $SNMP_NETWORKS"
 
-echo "$PROM_NETWORKS $SNMP_NETWORKS" | grep -q "$NETWORK" && pass "Both containers attached to $NETWORK" || fail "Containers are not on the same network"
+    echo "$PROM_NETWORKS $SNMP_NETWORKS" | grep -q "$NETWORK" && pass "Both containers attached to $NETWORK" || fail "Containers are not on the same network"
+else
+    warn "Skipping network membership check because docker is unavailable"
+fi
 
 section "HOST PORT CHECK"
 HOST_PORT_LINE=$(ss -tulnp 2>/dev/null | grep ":$SNMP_PORT" | head -n 1)
@@ -69,23 +90,31 @@ else
 fi
 
 section "PROMETHEUS -> SNMP EXPORTER DNS"
-DNS_OUTPUT=$(docker exec "$PROM_CONTAINER" sh -lc "getent hosts $SNMP_CONTAINER 2>/dev/null || nslookup $SNMP_CONTAINER 2>/dev/null || true")
-if [ -n "$DNS_OUTPUT" ]; then
-    echo "$DNS_OUTPUT"
-    pass "Prometheus container can resolve $SNMP_CONTAINER"
+if [ "$DOCKER_AVAILABLE" -eq 1 ] && container_running "$PROM_CONTAINER"; then
+    DNS_OUTPUT=$(docker exec "$PROM_CONTAINER" sh -lc "getent hosts $SNMP_CONTAINER 2>/dev/null || nslookup $SNMP_CONTAINER 2>/dev/null || true")
+    if [ -n "$DNS_OUTPUT" ]; then
+        echo "$DNS_OUTPUT"
+        pass "Prometheus container can resolve $SNMP_CONTAINER"
+    else
+        fail "Prometheus container cannot resolve $SNMP_CONTAINER"
+    fi
 else
-    warn "Could not prove DNS with getent/nslookup; continuing with HTTP probe"
+    warn "Skipping DNS test because docker/prometheus is unavailable"
 fi
 
 section "PROMETHEUS -> SNMP EXPORTER HTTP"
-HTTP_OUTPUT=$(docker exec "$PROM_CONTAINER" sh -lc "wget -qO- http://$SNMP_CONTAINER:$SNMP_PORT/metrics 2>&1 | head -n 5")
-HTTP_STATUS=$?
-if [ $HTTP_STATUS -eq 0 ] && [ -n "$HTTP_OUTPUT" ]; then
-    echo "$HTTP_OUTPUT"
-    pass "Prometheus container can reach http://$SNMP_CONTAINER:$SNMP_PORT/metrics"
+if [ "$DOCKER_AVAILABLE" -eq 1 ] && container_running "$PROM_CONTAINER"; then
+    HTTP_OUTPUT=$(docker exec "$PROM_CONTAINER" sh -lc "wget -qO- http://$SNMP_CONTAINER:$SNMP_PORT/metrics 2>&1 | head -n 5")
+    HTTP_STATUS=$?
+    if [ $HTTP_STATUS -eq 0 ] && [ -n "$HTTP_OUTPUT" ]; then
+        echo "$HTTP_OUTPUT"
+        pass "Prometheus container can reach http://$SNMP_CONTAINER:$SNMP_PORT/metrics"
+    else
+        fail "Prometheus container cannot reach SNMP exporter over HTTP"
+        echo "$HTTP_OUTPUT"
+    fi
 else
-    fail "Prometheus container cannot reach SNMP exporter over HTTP"
-    echo "$HTTP_OUTPUT"
+    warn "Skipping HTTP probe from Prometheus because docker/prometheus is unavailable"
 fi
 
 section "HOST -> SNMP EXPORTER HTTP"
@@ -127,12 +156,16 @@ else
 fi
 
 section "SNMP END-TO-END (OPTIONAL DEVICE PROBE)"
-DEVICE_PROBE=$(docker exec "$SNMP_CONTAINER" sh -lc "wget -qO- 'http://localhost:$SNMP_PORT/snmp?target=$SNMP_TARGET_IP&module=$SNMP_MODULE&auth=$SNMP_AUTH' 2>&1 | head -n 5")
-if [ -n "$DEVICE_PROBE" ]; then
-    echo "$DEVICE_PROBE"
-    pass "SNMP exporter accepted probe for $SNMP_TARGET_IP"
+if [ "$DOCKER_AVAILABLE" -eq 1 ] && container_running "$SNMP_CONTAINER"; then
+    DEVICE_PROBE=$(docker exec "$SNMP_CONTAINER" sh -lc "wget -qO- 'http://localhost:$SNMP_PORT/snmp?target=$SNMP_TARGET_IP&module=$SNMP_MODULE&auth=$SNMP_AUTH' 2>&1 | head -n 5")
+    if [ -n "$DEVICE_PROBE" ]; then
+        echo "$DEVICE_PROBE"
+        pass "SNMP exporter accepted probe for $SNMP_TARGET_IP"
+    else
+        warn "Device probe returned no output; this can still be OK if the exporter waits for device response"
+    fi
 else
-    warn "Device probe returned no output; this can still be OK if the exporter waits for device response"
+    warn "Skipping device probe because docker/snmp-exporter is unavailable"
 fi
 
 section "SUMMARY"

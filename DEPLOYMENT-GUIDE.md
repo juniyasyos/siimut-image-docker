@@ -91,7 +91,7 @@ docker compose -f docker-compose-multi-apps.yml exec app-siimut php artisan migr
 docker compose -f docker-compose-multi-apps.yml exec app-siimut php artisan db:seed --force
 
 # Check health
-curl http://localhost:8000/health
+curl http://localhost:80000/health
 ```
 
 ## Configuration
@@ -119,7 +119,7 @@ Edit `docker-compose-multi-apps.yml` or override via `.env`:
 ```yaml
 environment:
   APP_ENV: production
-  APP_URL: "http://your-domain.com:8000"
+  APP_URL: "http://your-domain.com:80000"
   DB_HOST: database-service
   DB_USERNAME: siimut_user
   DB_PASSWORD: siimut-password

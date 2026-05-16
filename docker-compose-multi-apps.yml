@@ -8,9 +8,9 @@ services:
     image: nginx:alpine
     container_name: ${STACK_NAME:-multi}-web
     ports:
-      - "8000:8000"  # SIIMUT
-      - "8200:8200"  # IKP
-      - "8100:8100"  # IAM Server
+      - "80000:80000"  # SIIMUT
+      - "82000:82000"  # IKP
+      - "81000:81000"  # IAM Server
     volumes:
       - ./DockerNew/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./DockerNew/nginx/nginx-multi-apps.conf:/etc/nginx/conf.d/default.conf:ro
@@ -71,7 +71,7 @@ services:
       APP_DEBUG: true
       APP_WORKDIR: /var/www/siimut
       PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.9:8000"
+      APP_URL: "http://192.168.1.9:80000"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: siimut_user
@@ -87,13 +87,13 @@ services:
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.9:8100"
-      IAM_BASE_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      IAM_HOST: "http://192.168.1.9:81000"
+      IAM_BASE_URL: "http://192.168.1.9:81000"
+      IAM_ISSUER: "http://192.168.1.9:81000"
       # Internal container verification & API calls use Docker network service name
-      IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
-      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
-      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
+      IAM_VERIFY_ENDPOINT: "http://web:81000/api/sso/verify"
+      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:81000/api/sso/token/refresh"
+      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:81000/api/users/applications/detail"
       IAM_LOGIN_ROUTE: "/siimut/login"
       IAM_CALLBACK_ROUTE: "/sso/callback"
       IAM_APP_KEY: "siimut"
@@ -205,7 +205,7 @@ services:
       APP_DEBUG: "false"
       APP_WORKDIR: /var/www/ikp
       PUBLIC_VOLUME: /var/www/ikp/public
-      APP_URL: "http://192.168.1.9:8200"
+      APP_URL: "http://192.168.1.9:82000"
       TRUSTED_PROXIES: "*"
       DB_HOST: database-service
       DB_USERNAME: ikp_user
@@ -221,13 +221,13 @@ services:
       USE_SSO: "true"
       IAM_ENABLED: "true"
       # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.9:8100"
-      IAM_BASE_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      IAM_HOST: "http://192.168.1.9:81000"
+      IAM_BASE_URL: "http://192.168.1.9:81000"
+      IAM_ISSUER: "http://192.168.1.9:81000"
       # Internal container verification & API calls use Docker network service name
-      IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
-      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
-      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
+      IAM_VERIFY_ENDPOINT: "http://web:81000/api/sso/verify"
+      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:81000/api/sso/token/refresh"
+      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:81000/api/users/applications/detail"
       IAM_LOGIN_ROUTE: "/login"
       IAM_CALLBACK_ROUTE: "/callback"
       IAM_APP_KEY: "incident-reporting"
@@ -337,8 +337,8 @@ services:
       PUBLIC_VOLUME: /var/www/public-shared-iam
       DB_HOST: database-service
       # IAM Server Configuration - Override from compose
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://192.168.1.9:81000"
+      IAM_ISSUER: "http://192.168.1.9:81000"
       # MinIO S3 Configuration (use Docker service name, not localhost)
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
@@ -382,8 +382,8 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://192.168.1.9:81000"
+      IAM_ISSUER: "http://192.168.1.9:81000"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password
@@ -432,8 +432,8 @@ services:
       - ./env/.env.iam
     environment:
       APP_ENV: production
-      APP_URL: "http://192.168.1.9:8100"
-      IAM_ISSUER: "http://192.168.1.9:8100"
+      APP_URL: "http://192.168.1.9:81000"
+      IAM_ISSUER: "http://192.168.1.9:81000"
       DB_HOST: database-service
       DB_USER: iam_user
       DB_PASSWORD: iam-password

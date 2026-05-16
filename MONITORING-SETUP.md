@@ -86,14 +86,15 @@ Edit `monitoring/prometheus.yml` dan sesuaikan dengan environment Anda:
 
 ```yaml
 scrape_configs:
-  - job_name: 'node-exporter-prod'
+  - job_name: "node-exporter-prod"
     static_configs:
-      - targets: ['192.168.1.100:9100']  # ← Ganti dengan IP production server
+      - targets: ["192.168.1.100:9100"] # ← Ganti dengan IP production server
         labels:
-          server: 'production'
+          server: "production"
 ```
 
 **Available scrape job templates:**
+
 - `node-exporter-prod` - System metrics (CPU, Memory, Disk, Network)
 - `cadvisor` - Docker container metrics (optional)
 - `laravel-siimut`, `laravel-ikp`, `laravel-iam` - App metrics (optional)
@@ -148,7 +149,7 @@ services:
     ports:
       - "9113:9113"
     command:
-      - -nginx.scrape-uri=http://web:8000/nginx_status
+      - -nginx.scrape-uri=http://web:80000/nginx_status
 ```
 
 ---
@@ -165,13 +166,13 @@ services:
 
 3. Import pre-built dashboards:
 
-| Dashboard | ID | Deskripsi |
-|-----------|----|----|
-| **Node Exporter Full** | 1860 | System metrics (CPU, Memory, Disk, Network) |
-| **Docker and Host Metrics** | 893 | Docker container dan host metrics |
-| **Prometheus 2.0 Stats** | 3662 | Prometheus performance metrics |
-| **MySQL Overview** | 7362 | MySQL database metrics |
-| **Redis Dashboard** | 11835 | Redis cache metrics |
+| Dashboard                   | ID    | Deskripsi                                   |
+| --------------------------- | ----- | ------------------------------------------- |
+| **Node Exporter Full**      | 1860  | System metrics (CPU, Memory, Disk, Network) |
+| **Docker and Host Metrics** | 893   | Docker container dan host metrics           |
+| **Prometheus 2.0 Stats**    | 3662  | Prometheus performance metrics              |
+| **MySQL Overview**          | 7362  | MySQL database metrics                      |
+| **Redis Dashboard**         | 11835 | Redis cache metrics                         |
 
 ### Manual Dashboard Import
 
@@ -261,7 +262,7 @@ Edit `docker-compose-monitoring.yml`:
 services:
   prometheus:
     command:
-      - "--storage.tsdb.retention.time=30d"  # Keep 30 days
+      - "--storage.tsdb.retention.time=30d" # Keep 30 days
       - "--storage.tsdb.retention.size=50GB" # Or max 50GB
 ```
 

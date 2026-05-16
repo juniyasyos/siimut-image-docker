@@ -149,7 +149,7 @@ services:
     ports:
       - "9113:9113"
     command:
-      - -nginx.scrape-uri=http://web:80000/nginx_status
+      - -nginx.scrape-uri=http://web:8010/nginx_status
 ```
 
 ---

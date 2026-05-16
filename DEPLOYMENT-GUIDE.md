@@ -1,9 +1,11 @@
 # SIIMUT Docker Deployment Guide
 
 ## Overview
+
 This guide covers building, pushing, and deploying SIIMUT application using Docker.
 
 ## Architecture
+
 - **Image**: Self-contained production-ready image with all code, dependencies, and assets
 - **Tag**: `siimut:dev` (development/testing version)
 - **Registry**: Configurable via `REGISTRY_URL` in `.env`
@@ -11,6 +13,7 @@ This guide covers building, pushing, and deploying SIIMUT application using Dock
 ## Prerequisites
 
 ### Local Build Machine
+
 - Docker installed
 - Git
 - PHP 8.1+
@@ -18,6 +21,7 @@ This guide covers building, pushing, and deploying SIIMUT application using Dock
 - Node.js 16+ & npm
 
 ### Production Server
+
 - Docker & Docker Compose installed
 - Access to Docker registry
 - Network access to database
@@ -36,6 +40,7 @@ This guide covers building, pushing, and deploying SIIMUT application using Dock
 ```
 
 **What happens:**
+
 - ✅ Pull latest code from Git
 - ✅ Run `composer install`
 - ✅ Run `npm install && npm run build`
@@ -91,7 +96,7 @@ docker compose -f docker-compose-multi-apps.yml exec app-siimut php artisan migr
 docker compose -f docker-compose-multi-apps.yml exec app-siimut php artisan db:seed --force
 
 # Check health
-curl http://localhost:80000/health
+curl http://localhost:8010/health
 ```
 
 ## Configuration
@@ -119,7 +124,7 @@ Edit `docker-compose-multi-apps.yml` or override via `.env`:
 ```yaml
 environment:
   APP_ENV: production
-  APP_URL: "http://your-domain.com:80000"
+  APP_URL: "http://your-domain.com:8010"
   DB_HOST: database-service
   DB_USERNAME: siimut_user
   DB_PASSWORD: siimut-password
@@ -133,6 +138,7 @@ environment:
 ### Build Issues
 
 **Problem**: npm build fails
+
 ```bash
 # Solution: Clean and retry
 cd site/siimut
@@ -142,6 +148,7 @@ npm run build
 ```
 
 **Problem**: Livewire JS 404
+
 ```bash
 # Solution: Publish assets
 cd site/siimut
@@ -151,6 +158,7 @@ php artisan livewire:publish --assets
 ### Runtime Issues
 
 **Problem**: Login POST method not allowed
+
 ```bash
 # Check if Livewire assets loaded
 docker compose -f docker-compose-multi-apps.yml exec app-siimut ls -la /var/www/siimut/public/livewire
@@ -160,6 +168,7 @@ docker compose -f docker-compose-multi-apps.yml exec app-siimut ls -la /var/www/
 ```
 
 **Problem**: Database connection failed
+
 ```bash
 # Check DB service
 docker compose -f docker-compose-multi-apps.yml ps database-service
@@ -180,6 +189,7 @@ docker compose -f docker-compose-multi-apps.yml restart app-siimut
 ## Image Details
 
 ### What's Included
+
 - ✅ PHP 8.4 FPM (Alpine)
 - ✅ Laravel framework & vendor dependencies
 - ✅ Frontend assets (npm build output)
@@ -188,6 +198,7 @@ docker compose -f docker-compose-multi-apps.yml restart app-siimut
 - ✅ Optimized for production (OPcache, APCu, JIT)
 
 ### What's NOT Included (Volumes)
+
 - ❌ `storage/` - Uses Docker volume (persistent uploads, logs)
 - ❌ `bootstrap/cache/` - Uses Docker volume (cached configs)
 - ❌ `public/` - Uses Docker volume (shared with Nginx)
@@ -237,12 +248,14 @@ REGISTRY_URL=ghcr.io/yourusername
 ## Quick Reference
 
 ### Build Commands
+
 ```bash
 ./prepare-siimut.sh              # Prepare local artifacts
 ./build-push-dev.sh              # Build & push to registry
 ```
 
 ### Deploy Commands
+
 ```bash
 docker compose -f docker-compose-multi-apps.yml pull  # Pull latest
 docker compose -f docker-compose-multi-apps.yml up -d # Start services
@@ -251,6 +264,7 @@ docker compose -f docker-compose-multi-apps.yml logs -f app-siimut  # View logs
 ```
 
 ### Maintenance Commands
+
 ```bash
 # Restart app
 docker compose -f docker-compose-multi-apps.yml restart app-siimut
@@ -266,11 +280,13 @@ docker compose -f docker-compose-multi-apps.yml exec app-siimut sh
 ## Server Requirements
 
 ### Minimum
+
 - CPU: 1 core
 - RAM: 2GB
 - Disk: 10GB
 
 ### Recommended
+
 - CPU: 2 cores
 - RAM: 4GB
 - Disk: 20GB SSD

@@ -3,7 +3,13 @@
 # Script untuk memeriksa apakah JWT secrets sama di semua service
 # Services: app-siimut, app-ikp, app-iam
 
+# Dapatkan base directory (direktori tempat script berada)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_DIR="${SCRIPT_DIR}/env"
+
 echo "=== JWT SECRET VERIFICATION ==="
+echo "Script directory: $SCRIPT_DIR"
+echo "Env directory: $ENV_DIR"
 echo ""
 
 # Function untuk mendapatkan JWT secret dari container
@@ -12,10 +18,23 @@ get_jwt_secret() {
     docker exec $service sh -c 'echo $IAM_JWT_SECRET' 2>/dev/null
 }
 
-# Function untuk mendapatkan nilai dari env file jika container tidak running
+# Function untuk mendapatkan nilai dari env file
 get_jwt_from_env() {
     local env_file=$1
     grep "^IAM_JWT_SECRET=" "$env_file" | cut -d'=' -f2
+}
+
+# Function untuk menemukan env file
+find_env_file() {
+    local service=$1
+    local app_name="${service#app-}"
+    local env_file="$ENV_DIR/.env.$app_name"
+    
+    if [ -f "$env_file" ]; then
+        echo "$env_file"
+    else
+        echo ""
+    fi
 }
 
 # Array untuk menyimpan hasil
@@ -31,13 +50,13 @@ for service in "${services[@]}"; do
     
     # Jika container tidak running atau env kosong, ambil dari env file
     if [ -z "$secret" ]; then
-        env_file="/home/juni/projects/apps/docker/rsch-apps/env/.env.${service#app-}"
-        if [ -f "$env_file" ]; then
+        env_file=$(find_env_file "$service")
+        if [ -n "$env_file" ] && [ -f "$env_file" ]; then
             secret=$(get_jwt_from_env "$env_file")
             echo "  (dari file: $env_file)"
         else
             secret="NOT_FOUND"
-            echo "  ❌ File tidak ditemukan: $env_file"
+            echo "  ❌ File tidak ditemukan"
         fi
     else
         echo "  (dari container)"

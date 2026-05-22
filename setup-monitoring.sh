@@ -42,7 +42,7 @@ Usage:
 Examples:
   ./setup-monitoring.sh monitoring 192.168.1.100
     ./setup-monitoring.sh monitoring
-    ./setup-monitoring.sh target-server 192.168.1.9
+    ./setup-monitoring.sh target-server 192.168.1.4
   ./setup-monitoring.sh target-server 192.168.1.200
 
 Roles:
@@ -50,7 +50,7 @@ Roles:
   target-server  Start Node Exporter on the production/target server.
 
 Default target server IP untuk monitoring adalah 192.168.1.4.
-Target server IP untuk firewall rule exporter biasanya monitoring server, misalnya 192.168.1.9.
+Target server IP untuk firewall rule exporter biasanya monitoring server, misalnya 192.168.1.4.
 EOF
 }
 

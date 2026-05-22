@@ -3,7 +3,7 @@
 app_env: "production"
 app_debug: "false"
 app_url: "https://yourdomain.com"
-app_port: "8010"
+app_port: "8000"
 
 # Database Configuration
 mysql_root_password: "{{ vault_mysql_root_password | default('secret123') }}"

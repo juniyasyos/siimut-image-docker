@@ -15,8 +15,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9090:9090"   # S3 API
-      - "9091:9091"   # Console UI
+      - "${MINIO_API_PORT:-9090}:9090"   # S3 API
+      - "${MINIO_CONSOLE_PORT:-9091}:9091"   # Console UI
     command:
       - server
       - /data
@@ -137,7 +137,7 @@ services:
     # profiles:
     #   - dev # Only start with --profile dev
     ports:
-      - "8888:80"
+      - "${PMA_PORT:-8888}:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_BASE="$SCRIPT_DIR/docker-compose.base.yml"
+
 COMPOSE_APPS="$SCRIPT_DIR/docker-compose-multi-apps.yml"
 ENV_DEV="$SCRIPT_DIR/env/.env.dev"
 ENV_PROD="$SCRIPT_DIR/env/.env.prod"
@@ -17,18 +17,22 @@ Usage:
 
 Commands:
   up       Start stack in detached mode
-  down     Stop stack
+  down     Stop stack without removing volumes
   rebuild  Pull images and recreate containers
 
 Flags:
-  --dev      Use env/.env.dev
-  --prod     Use env/.env.prod
-  --v        Verbose docker compose output
-  -h, --help Show this help
+  --dev          Use env/.env.dev
+  --prod         Use env/.env.prod
+  --v, -v        Verbose docker compose output
+  -h, --help     Show this help
+
+Safety:
+  - down will never run with -v / --volumes
+  - volumes are preserved by default
 
 Defaults:
   - Environment: dev
-  - Compose files: docker-compose.base.yml + docker-compose-multi-apps.yml
+  - Compose file: docker-compose-multi-apps.yml
 EOF
 }
 
@@ -80,18 +84,23 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
+    --volumes)
+      error "Blocked: 'down --volumes' is not allowed because it can remove Docker volumes."
+      ;;
     *)
       EXTRA_ARGS+=("$1")
       ;;
   esac
+
   shift
- done
+done
 
 if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
   error "Unexpected argument(s): ${EXTRA_ARGS[*]}"
 fi
 
 ENV_FILE="$ENV_DEV"
+
 if [[ "$MODE" == "prod" ]]; then
   ENV_FILE="$ENV_PROD"
 fi
@@ -100,9 +109,23 @@ if [[ ! -f "$ENV_FILE" ]]; then
   error "Missing env file: $ENV_FILE"
 fi
 
-compose_cmd=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_BASE" -f "$COMPOSE_APPS")
+if [[ ! -f "$COMPOSE_APPS" ]]; then
+  error "Missing compose file: $COMPOSE_APPS"
+fi
+
+compose_cmd=(
+  docker compose
+  --env-file "$ENV_FILE"
+  -f "$COMPOSE_APPS"
+)
+
 if [[ "$VERBOSE" == "true" ]]; then
-  compose_cmd=(docker compose --verbose --env-file "$ENV_FILE" -f "$COMPOSE_BASE" -f "$COMPOSE_APPS")
+  compose_cmd=(
+    docker compose
+    --verbose
+    --env-file "$ENV_FILE"
+    -f "$COMPOSE_APPS"
+  )
 fi
 
 case "$ACTION" in
@@ -110,10 +133,12 @@ case "$ACTION" in
     log "Starting stack using $(basename "$ENV_FILE")"
     "${compose_cmd[@]}" up -d
     ;;
+
   down)
-    log "Stopping stack using $(basename "$ENV_FILE")"
-    "${compose_cmd[@]}" down
+    log "Stopping stack using $(basename "$ENV_FILE") without removing volumes"
+    "${compose_cmd[@]}" down --remove-orphans
     ;;
+
   rebuild)
     log "Rebuilding stack using $(basename "$ENV_FILE")"
     "${compose_cmd[@]}" pull

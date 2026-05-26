@@ -12,7 +12,7 @@ fi
 
 APP_DIR="${APP_DIR:-ikp}"
 REPO_URL="${REPO_URL:-https://github.com/juniyasyos/ikp.git}"
-BRANCH="iam-app"
+BRANCH="main"
 SITE_DIR="site/${APP_DIR}"
 
 # Database variables (untuk reference)

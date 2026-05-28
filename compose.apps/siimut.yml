@@ -1,0 +1,111 @@
+name: service-siimut
+
+services:
+  app:
+    extends:
+      file: ../compose.common.yml
+      service: php-app-base
+    image: siimut:v3.1.0
+    container_name: siimut-app
+    working_dir: /var/www/siimut
+    env_file:
+      - ../env/.env.siimut
+    environment:
+      APP_ENV: production
+      APP_DEBUG: true
+      APP_WORKDIR: /var/www/siimut
+      PUBLIC_VOLUME: /var/www/siimut/public
+      APP_URL: "http://192.168.1.4:8000"
+      TRUSTED_PROXIES: "*"
+      DB_HOST: database-service
+      DB_USERNAME: siimut_user
+      DB_PASSWORD: siimut-password
+      DB_DATABASE: siimut_db
+      SKIP_PUBLIC_SYNC: "true"
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_BUCKET: siimut
+      AWS_URL: http://192.168.1.4:9090/siimut
+      AWS_ENDPOINT: http://minio:9090
+      USE_SSO: "true"
+      IAM_ENABLED: "true"
+      IAM_HOST: "http://192.168.1.4:8100"
+      IAM_BASE_URL: "http://192.168.1.4:8100"
+      IAM_ISSUER: "http://192.168.1.4:8100"
+      IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
+      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
+      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
+      IAM_LOGIN_ROUTE: "/siimut/login"
+      IAM_CALLBACK_ROUTE: "/sso/callback"
+      IAM_APP_KEY: "siimut"
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+      - siimut_public:/var/www/siimut/public
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+
+  queue:
+    extends:
+      file: ../compose.common.yml
+      service: php-worker-base
+    image: siimut:v3.1.0
+    container_name: siimut-queue
+    working_dir: /var/www/siimut
+    env_file:
+      - ../env/.env.siimut
+    environment:
+      DB_HOST: database-service
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    command: >
+      artisan queue:work
+        --sleep=5
+        --tries=3
+        --timeout=120
+        --max-jobs=500
+        --max-time=3600
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
+  scheduler:
+    extends:
+      file: ../compose.common.yml
+      service: php-scheduler-base
+    image: siimut:v3.1.0
+    container_name: siimut-scheduler
+    working_dir: /var/www/siimut
+    env_file:
+      - ../env/.env.siimut
+    environment:
+      DB_HOST: database-service
+      DB_USER: siimut_user
+      DB_PASSWORD: siimut-password
+    volumes:
+      - siimut_storage:/var/www/siimut/storage
+      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
+    command: >
+      artisan schedule:work
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.1"
+        reservations:
+          memory: 64M
+          cpus: "0.1"

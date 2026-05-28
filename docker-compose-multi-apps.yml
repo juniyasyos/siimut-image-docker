@@ -59,415 +59,57 @@ services:
   # Pulled from Docker Hub: juniyasyos/siimut:VERSION
   ####################################################################################################
   app-siimut:
-    image: siimut:v3.1.0
-    # image: juniyasyos/siimut:v3.1.0
-    pull_policy: missing
-    container_name: siimut-app
-    working_dir: /var/www/siimut
-    env_file:
-      - ./env/.env.siimut
-    environment:
-      APP_ENV: production
-      APP_DEBUG: true
-      APP_WORKDIR: /var/www/siimut
-      PUBLIC_VOLUME: /var/www/siimut/public
-      APP_URL: "http://192.168.1.4:8000"
-      TRUSTED_PROXIES: "*"
-      DB_HOST: database-service
-      DB_USERNAME: siimut_user
-      DB_PASSWORD: siimut-password
-      DB_DATABASE: siimut_db
-      SKIP_PUBLIC_SYNC: "true"
-      AWS_ACCESS_KEY_ID: admin
-      AWS_SECRET_ACCESS_KEY: password
-      AWS_BUCKET: siimut
-      AWS_URL: http://192.168.1.4:9090/siimut
-      AWS_ENDPOINT: http://minio:9090
-      # SSO Configuration - Override from compose
-      USE_SSO: "true"
-      IAM_ENABLED: "true"
-      # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.4:8100"
-      IAM_BASE_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
-      # Internal container verification & API calls use Docker network service name
-      IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
-      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
-      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
-      IAM_LOGIN_ROUTE: "/siimut/login"
-      IAM_CALLBACK_ROUTE: "/sso/callback"
-      IAM_APP_KEY: "siimut"
-    volumes:
-      # Self-contained image - NO code mounts needed
-      # Only persistent data volumes
-      - siimut_storage:/var/www/siimut/storage
-      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-      - siimut_public:/var/www/siimut/public  # Shared volume (public assets)
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1"
-        reservations:
-          memory: 512M
-          cpus: "0.5"
-    healthcheck:
-      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    extends:
+      file: compose.apps/siimut.yml
+      service: app
 
   queue-siimut:
-    image: siimut:v3.1.0
-    # image: juniyasyos/siimut:v3.1.0
-    pull_policy: missing
-    container_name: siimut-queue
-    working_dir: /var/www/siimut
-    environment:
-      DB_HOST: database-service
-      DB_USER: siimut_user
-      DB_PASSWORD: siimut-password
-    volumes:
-      - siimut_storage:/var/www/siimut/storage
-      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan queue:work
-        --sleep=5
-        --tries=3
-        --timeout=120
-        --max-jobs=500
-        --max-time=3600
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-          cpus: "0.5"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
-    healthcheck:
-      test: ["CMD-SHELL", "php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    extends:
+      file: compose.apps/siimut.yml
+      service: queue
 
   scheduler-siimut:
-    image: siimut:v3.1.0
-    # image: juniyasyos/siimut:v3.1.0
-    pull_policy: missing
-    container_name: siimut-scheduler
-    working_dir: /var/www/siimut
-    environment:
-      DB_HOST: database-service
-      DB_USER: siimut_user
-      DB_PASSWORD: siimut-password
-    volumes:
-      - siimut_storage:/var/www/siimut/storage
-      - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan schedule:work
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.1"
-        reservations:
-          memory: 64M
-          cpus: "0.1"
-    healthcheck:
-      test: ["CMD-SHELL", "php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    extends:
+      file: compose.apps/siimut.yml
+      service: scheduler
 
 
   ####################################################################################################
   # Apps IKP (New Application)
   ####################################################################################################
   app-ikp:
-    image: ikp:v1.3.0
-    # image: juniyasyos/ikp:v1.3.0
-    pull_policy: missing
-    container_name: ikp-app
-    working_dir: /var/www/ikp
-    env_file:
-      - ./env/.env.ikp
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      APP_WORKDIR: /var/www/ikp
-      PUBLIC_VOLUME: /var/www/ikp/public
-      APP_URL: "http://192.168.1.4:8200"
-      TRUSTED_PROXIES: "*"
-      DB_HOST: database-service
-      DB_USERNAME: ikp_user
-      DB_PASSWORD: ikp-password
-      DB_DATABASE: ikp_db
-      SKIP_PUBLIC_SYNC: "true"
-      AWS_ACCESS_KEY_ID: admin
-      AWS_SECRET_ACCESS_KEY: password
-      AWS_BUCKET: ikp
-      AWS_URL: http://192.168.1.4:9090/ikp
-      AWS_ENDPOINT: http://192.168.1.4:9090
-      MEDIA_DISK: s3
-      # SSO Configuration - Override from compose
-      USE_SSO: "true"
-      IAM_ENABLED: "true"
-      # User browser OAuth/login should point to public gateway URL.
-      IAM_HOST: "http://192.168.1.4:8100"
-      IAM_BASE_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
-      # Internal container verification & API calls use Docker network service name
-      IAM_VERIFY_ENDPOINT: "http://web:8100/api/sso/verify"
-      IAM_REFRESH_TOKEN_ENDPOINT: "http://web:8100/api/sso/token/refresh"
-      IAM_BACKCHANNEL_USER_APPLICATIONS_ENDPOINT: "http://web:8100/api/users/applications/detail"
-      IAM_LOGIN_ROUTE: "/login"
-      IAM_CALLBACK_ROUTE: "/callback"
-      IAM_APP_KEY: "incident-reporting"
-    volumes:
-      - ikp_storage:/var/www/ikp/storage
-      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-      - ikp_public:/var/www/ikp/public
-    security_opt:
-      - seccomp:unconfined
-    cap_add:
-      - SYS_ADMIN
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1"
-        reservations:
-          memory: 512M
-          cpus: "0.5"
-    healthcheck:
-      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    extends:
+      file: compose.apps/ikp.yml
+      service: app
 
   queue-ikp:
-    image: ikp:v1.3.0
-    # image: juniyasyos/ikp:v1.3.0
-    pull_policy: missing
-    container_name: ikp-queue
-    working_dir: /var/www/ikp
-    env_file:
-      - ./env/.env.ikp
-    environment:
-      APP_ENV: production
-      DB_HOST: database-service
-      DB_USERNAME: ikp_user
-      DB_PASSWORD: ikp-password
-    volumes:
-      - ikp_storage:/var/www/ikp/storage
-      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan queue:work
-        --sleep=5
-        --tries=3
-        --timeout=120
-        --max-jobs=500
-        --max-time=3600
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-          cpus: "0.7"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
+    extends:
+      file: compose.apps/ikp.yml
+      service: queue
 
   scheduler-ikp:
-    image: ikp:v1.3.0
-    # image: juniyasyos/ikp:v1.3.0
-    pull_policy: missing
-    container_name: ikp-scheduler
-    working_dir: /var/www/ikp
-    env_file:
-      - ./env/.env.ikp
-    environment:
-      APP_ENV: production
-      DB_HOST: database-service
-      DB_USERNAME: ikp_user
-      DB_PASSWORD: ikp-password
-    volumes:
-      - ikp_storage:/var/www/ikp/storage
-      - ikp_bootstrap_cache:/var/www/ikp/bootstrap/cache
-    entrypoint: ["php"]
-    command: >
-      artisan schedule:work
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.2"
-        reservations:
-          memory: 64M
-          cpus: "0.1"
+    extends:
+      file: compose.apps/ikp.yml
+      service: scheduler
 
 
   ####################################################################################################
   # Apps IAM
   ####################################################################################################
   app-iam:
-    image: iam-server:v2.1.0
-    # image: juniyasyos/iam-server:v2.1.0
-    pull_policy: missing
-    container_name: iam-app
-    env_file:
-      - ./env/.env.iam
-    environment:
-      APP_ENV: production
-      TRUSTED_PROXIES: "*"
-      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
-      APP_WORKDIR: /var/www/iam
-      PUBLIC_VOLUME: /var/www/public-shared-iam
-      DB_HOST: database-service
-      # IAM Server Configuration - Override from compose
-      APP_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
-      # MinIO S3 Configuration (use Docker service name, not localhost)
-      AWS_ACCESS_KEY_ID: admin
-      AWS_SECRET_ACCESS_KEY: password
-      AWS_DEFAULT_REGION: us-east-1
-      AWS_BUCKET: data-center
-      AWS_URL: http://192.168.1.4:9090/data-center
-      AWS_ENDPOINT: http://192.168.1.4:9090
-      AWS_USE_PATH_STYLE_ENDPOINT: "true"
-      MEDIA_DISK: s3
-    volumes:
-      # Only persistent data, NO CODE mounts
-      - iam_storage:/var/www/iam/storage
-      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
-      - iam_public:/var/www/public-shared-iam  # Shared with Caddy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1.5"
-        reservations:
-          memory: 512M
-          cpus: "0.5"
-    healthcheck:
-      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 && php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      default:
-        aliases:
-          - iam-app
+    extends:
+      file: compose.apps/iam.yml
+      service: app
 
   queue-iam:
-    image: iam-server:v2.1.0
-    # image: juniyasyos/iam-server:v2.1.0
-    pull_policy: missing
-    container_name: iam-queue
-    working_dir: /var/www/iam
-    env_file:
-      - ./env/.env.iam
-    environment:
-      APP_ENV: production
-      APP_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
-      DB_HOST: database-service
-      DB_USER: iam_user
-      DB_PASSWORD: iam-password
-      # MinIO S3 Configuration (use Docker service name, not localhost)
-      AWS_ACCESS_KEY_ID: admin
-      AWS_SECRET_ACCESS_KEY: password
-      AWS_DEFAULT_REGION: us-east-1
-      AWS_BUCKET: data-center
-      AWS_URL: http://192.168.1.4:9090/data-center
-      AWS_ENDPOINT: http://minio:9090
-      AWS_USE_PATH_STYLE_ENDPOINT: "true"
-    volumes:
-      - iam_storage:/var/www/iam/storage
-      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
-    # Keep Dockerfile entrypoint so app startup script cleans stale cache etc.
-    command: >
-      php artisan queue:work
-        --sleep=5
-        --tries=3
-        --timeout=120
-        --max-jobs=500
-        --max-time=3600
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-          cpus: "0.5"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
-    healthcheck:
-      test: ["CMD-SHELL", "php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    extends:
+      file: compose.apps/iam.yml
+      service: queue
 
   scheduler-iam:
-    image: iam-server:v2.1.0
-    # image: juniyasyos/iam-server:v2.1.0
-    pull_policy: missing
-    container_name: iam-scheduler
-    working_dir: /var/www/iam
-    env_file:
-      - ./env/.env.iam
-    environment:
-      APP_ENV: production
-      APP_URL: "http://192.168.1.4:8100"
-      IAM_ISSUER: "http://192.168.1.4:8100"
-      DB_HOST: database-service
-      DB_USER: iam_user
-      DB_PASSWORD: iam-password
-      # MinIO S3 Configuration (use Docker service name, not localhost)
-      AWS_ACCESS_KEY_ID: admin
-      AWS_SECRET_ACCESS_KEY: password
-      AWS_DEFAULT_REGION: us-east-1
-      AWS_BUCKET: data-center
-      AWS_URL: http://192.168.1.4:9090/data-center
-      AWS_ENDPOINT: http://minio:9090
-      AWS_USE_PATH_STYLE_ENDPOINT: "true"
-    volumes:
-      - iam_storage:/var/www/iam/storage
-      - iam_bootstrap_cache:/var/www/iam/bootstrap/cache
-    # Keep Dockerfile entrypoint so app startup script cleans stale cache etc.
-    command: >
-      php artisan schedule:work
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.1"
-        reservations:
-          memory: 64M
-          cpus: "0.1"
-    healthcheck:
-      test: ["CMD-SHELL", "php artisan --version >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    extends:
+      file: compose.apps/iam.yml
+      service: scheduler
 
   ###################################################################################################
   ###################################################################################################

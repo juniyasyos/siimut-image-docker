@@ -134,18 +134,19 @@ services:
       - siimut_bootstrap_cache:/var/www/siimut/bootstrap/cache
     entrypoint: ["php"]
     command: >
+      -d memory_limit=512M
       artisan queue:work
         --sleep=5
         --tries=3
-        --timeout=120
-        --max-jobs=500
+        --timeout=3600
+        --max-jobs=10
         --max-time=3600
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 384M
-          cpus: "0.5"
+          memory: 512M
+          cpus: "1"
         reservations:
           memory: 128M
           cpus: "0.25"

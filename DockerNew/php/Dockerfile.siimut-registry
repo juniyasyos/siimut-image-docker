@@ -17,7 +17,7 @@ RUN apk add --no-cache \
       libxml2-dev postgresql-dev \
       linux-headers \
       curl openssl \
-      mysqldb-client \
+      mariadb-client \
       su-exec \
       $PHPIZE_DEPS \
   && cp /usr/share/zoneinfo/${TZ} /etc/localtime \

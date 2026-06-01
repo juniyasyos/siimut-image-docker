@@ -30,6 +30,7 @@ services:
         AWS_URL: "http://minio:9090/siimut"
         AWS_ENDPOINT: "http://minio:9090"
         BUILD_TIMESTAMP: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        DB_DUMP_DISABLE_SSL: true
     image: siimut:${SIIMUT_VERSION:-latest}
     pull_policy: never
 
